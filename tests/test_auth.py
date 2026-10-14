@@ -277,6 +277,32 @@ class MarkTests(unittest.TestCase):
         self.assertEqual(evs[0]["mark"], {**evs[0]["mark"], "status": "going", "ticket": "own"})
         self.assertEqual(evs[1]["venue"], "kiff")                       # Location nicht (mehr) konfiguriert
 
+    def test_personal_ical_with_marks(self):
+        anna = self.store.user_by_id(self.anna)
+        self.store.update_user(self.anna, share_marks=1)
+        self.store.update_user(self.ben, share_marks=1)
+        self.store.set_mark(self.anna, "kiff:1/a", "going")
+        self.store.set_mark(self.anna, "kiff:2", "interested")
+        self.store.set_mark(self.ben, "kiff:1/a", "going", "own")
+        url = f"/ical/{anna['ical_token']}.ics"
+        cal = call(self.app, "GET", url)["text"].replace("\r\n ", "")         # Faltung aufheben
+        self.assertIn("SUMMARY:✓ Band A (ohne Ticket)", cal)
+        self.assertIn("SUMMARY:☆ Band B", cal)
+        self.assertIn("STATUS:TENTATIVE", cal)
+        self.assertIn("Ticket: noch nicht", cal)
+        self.assertIn("Gehen auch hin: Ben", cal)
+        going = call(self.app, "GET", url + "?status=going")["text"]
+        self.assertIn("Band A", going)
+        self.assertNotIn("Band B", going)
+        everything = call(self.app, "GET", url + "?all=1")["text"]
+        self.assertIn("X-WR-CALNAME:Konzerte", everything)              # wie calendar.ics (hier ohne Locations)
+        self.assertNotIn("☆", everything)
+        # neuer Link: alter sofort ungültig, nur angemeldet und von derselben Seite
+        self.assertEqual(self.req("POST", "/api/ical-token")["status"], 401)
+        new = self.req("POST", "/api/ical-token", self.c_anna)["json"]["ical_token"]
+        self.assertEqual(call(self.app, "GET", url)["status"], 404)
+        self.assertEqual(call(self.app, "GET", f"/ical/{new}.ics")["status"], 200)
+
     def test_csrf_and_user_delete(self):
         r = call(self.app, "PUT", "/api/marks/kiff%3A2", {"cookie": self.c_anna, "origin": "https://evil.example",
                                                            "host": "test", "content-type": "application/json"},

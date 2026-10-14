@@ -11,7 +11,7 @@
   - [x] Manuelle Korrektur falscher Zuordnungen (`artists.overrides` / `artists.titles` in config.yaml)
 - [x] 3. Oberfläche: Genre-Filter, Popularitäts-Badge, Sortierung nach Popularität;
          Genre/Popularität auch im iCal-Abo (`?genre=…&pop=…`) (v1.3.0)
-- [ ] 4. Login (auch von ausserhalb des Heimnetzes) – Gäste sehen den Kalender nur lesend, alle
+- [x] 4. Login (auch von ausserhalb des Heimnetzes) – Gäste sehen den Kalender nur lesend, alle
          Benutzer-Funktionen hinter Login; persönliche iCal-Links funktionieren ohne (geheimer Token)
   - [x] 4a. Login: Benutzer per Befehl anlegen, Login-Seite, Logout, Sperre nach Fehlversuchen,
             `/api/run` nur mit Login; iCal-Abo über persönlichen Token-Link (v1.5.0)
@@ -23,8 +23,9 @@
           nicht den Ticket-Status. Filter «Meine Konzerte»: Markiert / Gehe hin / Ohne Ticket / Andere gehen
   - [x] 4c. Dashboard «Meine» (Tab, Klick auf den Namen oder /#meine): Ticket fehlt noch, Gehe hin,
             Interessiert, Vergangen – unabhängig von den Filtern (v1.8.0)
-  - [ ] 4d. Persönlicher iCal-Link mit den markierten Konzerten (Status im Titel/Beschreibung),
-            Link erneuerbar
+  - [x] 4d. Persönlicher iCal-Link mit den markierten Konzerten (☆/✓ im Titel, TENTATIVE/CONFIRMED,
+            Ticket + wer sonst hingeht in der Beschreibung), `?status=going`, `?all=1` = alle mit Filtern;
+            Link im Tab «Meine» erneuerbar (v1.9.0)
   - Zugang von aussen: eigene Domain über Cloudflare → nginx-Reverse-Proxy (noch nicht aktiviert)
   - Gegenseitig sehen, wer hingeht: pro Benutzer ein-/ausschaltbar (Opt-in)
 - [ ] 5. Optional: Bands folgen → Telegram-Meldung bei neuer Show

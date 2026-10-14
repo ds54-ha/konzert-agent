@@ -48,8 +48,15 @@ Weitere: `user passwd <name>` (beendet auch alle Sitzungen), `user disable|enabl
 (neuer Kalender-Link, der alte wird ungültig). Passwörter: mindestens 10 Zeichen.
 
 Nach 5 Fehlversuchen in 15 Minuten sind der Benutzername und die IP 15 Minuten gesperrt (`auth:` in
-`config.yaml`). Der **iCal-Abo**-Link ist persönlich und funktioniert ohne Passwort (Kalender-Apps können
-sich nicht anmelden) – also nicht weitergeben; bei Bedarf mit `user new-ical` erneuern.
+`config.yaml`).
+
+**Kalender-Abos:** Im Tab **Meine** gibt es den persönlichen Link mit den markierten Konzerten (☆ als
+«vorläufig», ✓ als «bestätigt», «(ohne Ticket)» im Titel, Ticket-Status und wer sonst hingeht in der
+Beschreibung) – oder nur «Gehe hin» (`?status=going`). Der Knopf **iCal-Abo** oben liefert alle Events mit den
+aktuellen Filtern (angemeldet über `…?all=1`). Persönliche Links funktionieren ohne Passwort (Kalender-Apps
+können sich nicht anmelden) – also nicht weitergeben; erneuern im Tab «Meine» («neuen Link erzeugen») oder
+mit `user new-ical`, der alte wird sofort ungültig. Über `http://` (ohne HTTPS) erlaubt der Browser kein
+Kopieren in die Zwischenablage – dann erscheint der Link zum Kopieren in einem Fenster.
 
 **Hinter nginx / Cloudflare** braucht der Login diese Header, sonst lehnt die Origin-Prüfung das
 Anmelden ab bzw. das Cookie ist nicht als `Secure` markiert:

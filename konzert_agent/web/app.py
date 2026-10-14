@@ -13,9 +13,11 @@ from starlette.staticfiles import StaticFiles
 
 from .. import __version__
 from ..agent import Agent
+from ..auth import new_token
 from .security import AuthMiddleware, login_routes
 
 STATIC = Path(__file__).parent / "static"
+TICKET_TEXT = {"none": "Ticket: noch nicht", "own": "Ticket: selbst gekauft", "other": "Ticket: hat jemand anderes"}
 
 
 def _ics_escape(s: str) -> str:
@@ -130,17 +132,57 @@ def create_app(agent: Agent):
             agent.store.update_user(u["id"], share_marks=int(body["share_marks"]))
         return JSONResponse({"ok": True})
 
+    async def api_new_ical(req):
+        """Neuer persönlicher Kalender-Link – der alte funktioniert sofort nicht mehr."""
+        u = req.state.user
+        if u is None:
+            return JSONResponse({"error": "Nicht angemeldet"}, 401)
+        token = new_token()
+        agent.store.update_user(u["id"], ical_token=token)
+        return JSONResponse({"ical_token": token})
+
     async def personal_ics(req):
-        """Kalender-Abo mit geheimem Token – Kalender-Apps können sich nicht anmelden."""
-        if not agent.store.user_by_ical_token(req.path_params["token"]):
+        """Kalender-Abo mit geheimem Token – Kalender-Apps können sich nicht anmelden.
+        Standard: die eigenen markierten Konzerte (?status=going nur «Gehe hin»); ?all=1 = alle Events wie
+        calendar.ics (mit denselben Filtern)."""
+        u = agent.store.user_by_ical_token(req.path_params["token"])
+        if not u:
             return Response("Unbekannter Kalender-Link", status_code=404)
-        return await ics(req)
+        if req.query_params.get("all") == "1":
+            return ics_response(query_events(req), "Konzerte")
+        evs = agent.store.marked_events(u["id"])
+        if req.query_params.get("status") in agent.store.MARK_STATUS:
+            evs = [e for e in evs if e["mark"]["status"] == req.query_params["status"]]
+        others = agent.store.shared_marks(u["id"]) if u["share_marks"] else {}
+
+        def describe(e):
+            m = e["mark"]
+            if m["status"] == "interested":
+                lines = ["☆ Interessiert"]
+            else:
+                lines = [f"✓ Gehe hin · {TICKET_TEXT[m['ticket']]}"]
+            going = [o["user"] for o in others.get(e["uid"], []) if o["status"] == "going"]
+            if going:
+                lines.append("Gehen auch hin: " + ", ".join(going))
+            return lines
+
+        def title(e):
+            m = e["mark"]
+            if m["status"] == "interested":
+                return "☆ " + e["title"]
+            return "✓ " + e["title"] + (" (ohne Ticket)" if m["ticket"] == "none" else "")
+
+        return ics_response(evs, f"Meine Konzerte ({u['username']})", describe, title,
+                            lambda e: "TENTATIVE" if e["mark"]["status"] == "interested" else "CONFIRMED")
 
     async def ics(req):
+        return ics_response(query_events(req), "Konzerte")
+
+    def ics_response(evs, name, describe=lambda e: [], title=lambda e: e["title"], status=lambda e: None):
         lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//KonzertAgent//DE",
-                 "X-WR-CALNAME:Konzerte", "X-WR-TIMEZONE:Europe/Zurich", "CALSCALE:GREGORIAN"]
+                 f"X-WR-CALNAME:{_ics_escape(name)}", "X-WR-TIMEZONE:Europe/Zurich", "CALSCALE:GREGORIAN"]
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        for e in query_events(req):
+        for e in evs:
             d = date.fromisoformat(e["date"])
             lines += ["BEGIN:VEVENT", f"UID:{e['uid']}@konzert-agent", f"DTSTAMP:{stamp}"]
             if e["time"] and not e["end_date"]:
@@ -151,11 +193,14 @@ def create_app(agent: Agent):
             else:
                 end = date.fromisoformat(e["end_date"]) if e["end_date"] else d
                 lines += [f"DTSTART;VALUE=DATE:{d:%Y%m%d}", f"DTEND;VALUE=DATE:{end + timedelta(days=1):%Y%m%d}"]
-            summary = e["title"] + (" (ABGESAGT)" if e["cancelled"] else "")
-            venue = venue_meta[e["venue_id"]]
+            summary = title(e) + (" (ABGESAGT)" if e["cancelled"] else "")
+            venue = venue_meta.get(e["venue_id"], {"name": e["venue_id"], "city": ""})
+            st = "CANCELLED" if e["cancelled"] else status(e)
             lines += [f"SUMMARY:{_ics_escape(summary)}",
                       f"LOCATION:{_ics_escape(venue['name'] + (', ' + venue['city'] if venue['city'] else ''))}",
-                      f"URL:{e['url']}", f"DESCRIPTION:{_ics_escape(e['url'])}", "END:VEVENT"]
+                      f"URL:{e['url']}", f"DESCRIPTION:{_ics_escape(chr(10).join([*describe(e), e['url']]))}"]
+            lines += [f"STATUS:{st}"] if st else []
+            lines.append("END:VEVENT")
         lines.append("END:VCALENDAR")
         # Zeilen > 75 Oktette falten
         folded = []
@@ -166,7 +211,8 @@ def create_app(agent: Agent):
                     cut -= 1
                 folded.append(line[:cut]); line = " " + line[cut:]
             folded.append(line)
-        return Response("\r\n".join(folded) + "\r\n", media_type="text/calendar; charset=utf-8")
+        return Response("\r\n".join(folded) + "\r\n", media_type="text/calendar; charset=utf-8",
+                        headers={"cache-control": "no-store"})
 
     async def health(req):
         return JSONResponse({"ok": True, "version": __version__})
@@ -190,6 +236,7 @@ def create_app(agent: Agent):
         Route("/api/my-events", api_my_events),
         Route("/api/marks/{uid:path}", api_mark, methods=["PUT", "DELETE"]),
         Route("/api/settings", api_settings, methods=["PUT"]),
+        Route("/api/ical-token", api_new_ical, methods=["POST"]),
         Route("/calendar.ics", ics),
         Route("/ical/{token}.ics", personal_ics),
         Route("/health", health),
