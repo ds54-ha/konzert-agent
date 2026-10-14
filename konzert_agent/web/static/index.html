@@ -281,6 +281,7 @@ const store = {
 };
 
 let venues = [], events = [], meta = {}, me = null, marks = {mine: {}, others: {}, share: false}, myEvents = [];
+let tg = {available: false}, tgLink = null, tgPoll = null;   // Telegram pro Benutzer
 const state = {
   q: "", range: store.get("range", "all"), city: store.get("city", ""), onlyNew: false,
   hidden: new Set(store.get("hidden", [])), view: store.get("view", "list"), cal: new Date(),
@@ -516,7 +517,7 @@ function renderMine() {
   <div class="dash-set">
     <label class="toggle"><input type="checkbox" class="share-toggle" ${marks.share?"checked":""}> Markierungen teilen</label>
     <div class="hint">Andere Angemeldete sehen dann, wohin du gehst (ohne Ticket-Status) – und du siehst, wohin sie gehen.
-      Nur wer selbst teilt, sieht die anderen.</div></div>`;
+      Nur wer selbst teilt, sieht die anderen.</div></div>${renderTelegram()}`;
   if (!myEvents.length)
     return `<div class="empty">Noch nichts markiert – in der Liste bei einem Konzert ☆ Interessiert oder ✓ Gehe hin anklicken.</div>${settings}`;
   const stat = (n, l, cls = "") => `<div class="stat ${cls}"><b>${n}</b><span>${l}</span></div>`;
@@ -532,6 +533,66 @@ function renderMine() {
     ${g.past.length ? `<details class="past"><summary><div class="dash-h">Vergangen <small>${g.past.length}</small></div></summary>
       ${g.past.map(datedRow).join("")}</details>` : ""}
     ${settings}`;
+}
+
+function currentFilter() {                  // Filter der Seitenleiste – für «Nur passende» Telegram-Meldungen
+  const shown = venues.filter(v => !state.hidden.has(v.id) && (!state.city || v.city === state.city)).map(v => v.id);
+  return { venues: shown.length === venues.length ? [] : shown, genres: [...state.genres], kinds: [...state.kinds], pops: [...state.pops] };
+}
+
+function filterText(f) {
+  const parts = [];
+  if (f.venues && f.venues.length) {
+    const names = venues.filter(v => f.venues.includes(v.id)).map(v => v.name);
+    parts.push(names.length <= 3 ? names.join(", ") : `${names.length} von ${venues.length} Locations`);
+  }
+  if (f.kinds && f.kinds.length) parts.push(f.kinds.join(", "));
+  if (f.genres && f.genres.length) parts.push(f.genres.join(", "));
+  if (f.pops && f.pops.length) parts.push("Popularität: " + f.pops.join(", "));
+  return parts.length ? parts.join(" · ") : "keine Einschränkung (wie «Alle»)";
+}
+
+function renderTelegram() {
+  if (!tg.available) return "";
+  if (!tg.linked) {
+    const link = tgLink ? `<div class="tools"><a class="btn" href="${esc(tgLink.url)}" target="_blank" rel="noopener">In Telegram öffnen →</a></div>
+      <div class="hint">Dort auf <b>Start</b> tippen – dann ist der Chat verbunden (diese Seite merkt es von selbst).
+        Der Link gilt ${tgLink.minutes} Minuten und nur einmal. Auf einem anderen Gerät: <span class="mono" style="word-break:break-all">${esc(tgLink.url)}</span></div>`
+      : `<div class="tools"><button class="btn" data-tg="link">✈️ Telegram verbinden</button></div>
+      <div class="hint">Neue Konzerte und Absagen deiner markierten Konzerte als Telegram-Nachricht. Du verbindest dich
+        selbst – niemand muss dafür deine Chat-ID kennen.</div>`;
+    return `<div class="dash-set"><div class="label">Telegram</div>${link}</div>`;
+  }
+  const p = tg.prefs, MODES = [["off","Aus"],["all","Alle"],["filter","Nur passende"]];
+  return `<div class="dash-set"><div class="label">Telegram · verbunden mit ${esc(tg.chat || "Chat")}</div>
+    <div class="tools">Neue Konzerte melden:
+      <div class="seg sm">${MODES.map(([k,l]) => `<button class="${p.new===k?"on":""}" data-tg-new="${k}">${l}</button>`).join("")}</div></div>
+    ${p.new === "filter" ? `<div class="hint">Filter: <b>${esc(filterText(p.filter))}</b>
+      <button class="linkish" data-tg="filter">aktuelle Filter der Seitenleiste übernehmen</button></div>` : ""}
+    <label class="toggle" style="margin-top:10px"><input type="checkbox" class="tg-cancel" ${p.cancelled?"checked":""}>
+      Absagen von Konzerten melden, die ich markiert habe</label>
+    <div class="tools" style="margin-top:10px"><button class="btn" data-tg="test">Testnachricht</button>
+      <button class="linkish" data-tg="unlink">Telegram trennen</button></div>
+    <div class="hint">«Nur passende»: Locations, Typ, Genre und Popularität wie in der Seitenleiste – erst einstellen,
+      dann übernehmen. Trennen geht auch mit /stop im Telegram-Chat.</div></div>`;
+}
+
+async function saveTg(prefs) {
+  const r = await api("api/telegram", { method: "PUT", headers: {"content-type": "application/json"}, body: JSON.stringify(prefs) });
+  if (r.error) { toast(r.error); return; }
+  tg = r; render();
+}
+
+function watchTgLink() {                    // nach «Telegram verbinden»: warten, bis im Telegram «Start» gedrückt wurde
+  clearInterval(tgPoll);
+  const until = Date.now() + tgLink.minutes * 60e3;
+  tgPoll = setInterval(async () => {
+    const r = await api("api/telegram");
+    if (r.linked || Date.now() > until) {
+      clearInterval(tgPoll); tgLink = null; tg = r; render();
+      if (r.linked) toast("Telegram verbunden ✓");
+    }
+  }, 3000);
 }
 
 function pillMark(e) {
@@ -609,6 +670,7 @@ async function load() {
   me = m; venues = v.venues; meta = v; events = e;
   marks = isMember() ? await api("api/marks") : {mine: {}, others: {}, share: false};
   myEvents = isMember() ? await api("api/my-events") : [];
+  if (isMember() && !tgLink) tg = await api("api/telegram");
   $("#mineTab").hidden = !isMember();
   // Gäste sehen nur den Kalender; Funktionen für Angemeldete erst nach «Anmelden»
   const member = !!(me && me.user), guest = !!(me && me.auth && !me.user);
@@ -717,6 +779,30 @@ $("#view").addEventListener("click", async ev => {
     return;
   }
   copyLink(myIcal() + (b.dataset.ical === "going" ? "?status=going" : ""), "Kalender-Link kopiert" + SECRET);
+});
+$("#view").addEventListener("click", async ev => {
+  const n = ev.target.closest("[data-tg-new]");
+  if (n) { saveTg({...tg.prefs, new: n.dataset.tgNew, filter: n.dataset.tgNew === "filter" && !Object.keys(tg.prefs.filter).length ? currentFilter() : tg.prefs.filter}); return; }
+  const b = ev.target.closest("[data-tg]"); if (!b) return;
+  const act = b.dataset.tg;
+  if (act === "link") {
+    const r = await api("api/telegram/link", { method: "POST" });
+    if (r.error) { toast(r.error); return; }
+    tgLink = r; render(); watchTgLink();
+  } else if (act === "filter") {
+    await saveTg({...tg.prefs, filter: currentFilter()}); toast("Filter übernommen");
+  } else if (act === "test") {
+    const r = await api("api/telegram/test", { method: "POST" });
+    toast(r.error || "Testnachricht gesendet");
+    if (r.error) { tg = await api("api/telegram"); render(); }
+  } else if (act === "unlink") {
+    if (!confirm("Telegram trennen? Du bekommst dann keine Meldungen mehr.")) return;
+    await api("api/telegram", { method: "DELETE" });
+    tg = await api("api/telegram"); render(); toast("Telegram getrennt");
+  }
+});
+document.addEventListener("change", e => {
+  if (e.target.classList.contains("tg-cancel")) saveTg({...tg.prefs, cancelled: e.target.checked});
 });
 $("#runBtn").onclick = async () => {
   const b = $("#runBtn"); b.disabled = true; b.textContent = "prüfe …";

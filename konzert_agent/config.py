@@ -68,6 +68,13 @@ class AuthSettings:
 
 
 @dataclass
+class UserTelegramSettings:
+    enabled: bool = True
+    token: str = ""                  # eigener Bot nur dafür (liest Nachrichten – siehe README «Telegram pro Benutzer»)
+    link_minutes: int = 15           # so lange gilt ein «Telegram verbinden»-Link
+
+
+@dataclass
 class Config:
     settings: Settings
     venues: list[VenueConfig]
@@ -75,6 +82,7 @@ class Config:
     plugins: list[str] = field(default_factory=list)
     artists: ArtistSettings = field(default_factory=ArtistSettings)
     auth: AuthSettings = field(default_factory=AuthSettings)
+    user_telegram: UserTelegramSettings = field(default_factory=UserTelegramSettings)
 
     def venue(self, venue_id: str) -> VenueConfig | None:
         return next((v for v in self.venues if v.id == venue_id), None)
@@ -94,4 +102,5 @@ def load_config(path: str | Path) -> Config:
         venues.append(vc)
     return Config(settings=settings, venues=venues, notifiers=raw.get("notifiers") or [],
                   plugins=raw.get("plugins") or [], artists=ArtistSettings(**(raw.get("artists") or {})),
-                  auth=AuthSettings(**(raw.get("auth") or {})))
+                  auth=AuthSettings(**(raw.get("auth") or {})),
+                  user_telegram=UserTelegramSettings(**(raw.get("user_telegram") or {})))

@@ -16,6 +16,7 @@ from .models import Event
 from .notifiers import create_notifiers
 from .sources import create_source
 from .store import Store
+from .userbot import UserBot
 
 log = logging.getLogger(__name__)
 
@@ -59,6 +60,9 @@ class Agent:
         self.fetcher = fetcher or Fetcher(s.user_agent, s.request_delay, s.respect_robots)
         names = {v.id: v.name for v in config.venues}
         self.notifiers = create_notifiers(config.notifiers, names, s.base_url)
+        ut = config.user_telegram
+        self.user_bot = UserBot(ut.token, self.store, names, s.base_url, ut.link_minutes) \
+            if ut.enabled and ut.token else None
         self._run_lock = threading.Lock()
         a = config.artists
         self.artists = ArtistEnricher(
@@ -140,6 +144,11 @@ class Agent:
                         n.send(result.new, result.cancelled)
                     except Exception:  # noqa: BLE001
                         log.exception("Benachrichtigung über %s fehlgeschlagen", type(n).__name__)
+                if self.user_bot:
+                    try:
+                        self.user_bot.notify(result.new, result.cancelled)
+                    except Exception:  # noqa: BLE001
+                        log.exception("Telegram-Meldungen an Benutzer fehlgeschlagen")
                 self.store.mark_notified([e.uid for e in result.new])
             return result
         finally:

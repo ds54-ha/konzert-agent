@@ -22,8 +22,10 @@ auth:
   client_ip_header: ""       # hinter Cloudflare: CF-Connecting-IP (nur setzen, wenn der Proxy ihn setzt!)
 
 notifiers:
+  # Optional: alles fest an EINEN Chat (ohne Login). Normalerweise nicht nötig – Telegram läuft pro Benutzer
+  # (user_telegram unten); wer alles will, wählt dort «Alle». Derselbe Bot darf für beides verwendet werden.
   - type: telegram
-    enabled: true
+    enabled: false
     token: ${TELEGRAM_BOT_TOKEN}
     chat_id: ${TELEGRAM_CHAT_ID}
     silent: false
@@ -32,6 +34,14 @@ notifiers:
   - type: webhook
     enabled: false
     url: http://homeassistant.local:8123/api/webhook/neue_konzerte
+
+# Telegram pro Benutzer: jeder verbindet sich selbst («Meine» → «Telegram verbinden») und wählt, was er bekommt.
+# Bot bei @BotFather → /newbot. Der Agent liest die Nachrichten an den Bot – kein anderes Programm darf das
+# beim selben Bot tun (z.B. Home Assistant); Senden über denselben Bot (notifiers oben) ist kein Problem.
+user_telegram:
+  enabled: true
+  token: ${TELEGRAM_USER_BOT_TOKEN:-}   # leer = Funktion ausgeblendet
+  link_minutes: 15                       # so lange gilt ein Verbinden-Link
 
 # Band-Infos (Genre, Stil, Popularität) über MusicBrainz + Deezer
 # Prüfen: python -m konzert_agent artists <location>   Nach Korrekturen: … artists --save

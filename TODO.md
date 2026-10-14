@@ -29,7 +29,7 @@
   - Zugang von aussen: eigene Domain über Cloudflare → nginx-Reverse-Proxy (noch nicht aktiviert)
   - Gegenseitig sehen, wer hingeht: pro Benutzer ein-/ausschaltbar (Opt-in)
 
-## Weitere Locations
+## Weitere Locations & Scraper
 
 - [x] 6. Neue Scraper: Dynamo (Zürich), X-tra (Zürich), Nordportal (Baden),
          Old Capitol (Langenthal), Z7 (Pratteln) (v1.4.0)
@@ -37,21 +37,28 @@
   - X-tra erlaubt Bots inzwischen (robots.txt «Allow: /»)
   - [ ] Dynamo zeigt nur ~6 Wochen; die Drupal-JSON:API (dynamo.nodehive.app) hätte alles, enthält aber
         private Kontaktdaten der Veranstalter → bewusst nicht verwendet
+- [ ] 13. statt nur locations auch Bandseiten direkt, um Touranouncement abzufangen und die Daten einzupflegen
 ## Layout & Bedienung
 
 - [x] 7. Optimierungen am UX (v1.10.0)
   - [x] Zusätzlicher Kalenderselector um individuelle Zeiträume (nicht nur Wochenende, 7, 30 Tage etc.) zu wählen
   - [x] Locations als zusammenklappbar per Stadt (Haken pro Stadt, ⚠ bei Fehlern)
+    - [ ] Einfügen von "colapse all"
+    - [ ] Hinter jeder Location eine "nur" Button
   - [x] Persönliche Einstellungen am Ende der Sidebar (Teilen zusätzlich im Dashboard)
   - [x] Filter nach Event-Typ: Konzert / Party / Andere – aus Tags der Location, sonst eindeutigen Titelwörtern
         (`konzert_agent/kinds.py`); auch im iCal-Abo (`?kind=…`)
 - [x] 8. Optimierungen am Layout (v1.10.0)
   - [x] Option zur Wahl der Akzentfarbe (6 Farben, je hell/dunkel abgestimmt)
   - [x] Option für Dark-/Lightmode (System / Hell / Dunkel) – pro Gerät gespeichert, auch für Gäste
+  - [ ] add a disclaimer and copyright notice at the bottom
 
 ## Userfunktionen
 
-- [ ] 9. Individuelle Telegram-Konfiguration pro Benutzer (Voraussetzung für 10)
+- [x] 9. Individuelle Telegram-Konfiguration pro Benutzer (Voraussetzung für 10) (v1.11.0)
+  - [x] Selbst verbinden über eigenen Bot: Einmal-Link `t.me/<bot>?start=<code>`, Long-Polling (kein Webhook)
+  - [x] Pro Benutzer: neue Konzerte Aus / Alle / Nur passende (gespeicherter Filter), Absagen markierter Konzerte
+  - [x] Trennen im Web, mit /stop oder `user telegram-off`; blockierter Bot trennt automatisch
 - [ ] 10. Bands folgen → Telegram-Meldung bei neuer Show
 
 ## Später

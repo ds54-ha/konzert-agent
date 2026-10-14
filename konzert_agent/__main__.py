@@ -10,7 +10,8 @@
     python -m konzert_agent artists --save   # Band-Infos aller Events neu berechnen und speichern
     python -m konzert_agent user add anna    # Benutzer anlegen (fragt nach dem Passwort)
     python -m konzert_agent user list        # Benutzer anzeigen; weitere: passwd, disable, enable,
-                                             #   delete, logout (alle Sitzungen beenden), new-ical
+                                             #   delete, logout (alle Sitzungen beenden), new-ical,
+                                             #   telegram-off (Telegram-Verbindung lösen)
 """
 from __future__ import annotations
 
@@ -131,7 +132,8 @@ def user_command(store: Store, a) -> None:
         if not users:
             print("Noch keine Benutzer. Anlegen mit: python -m konzert_agent user add <name>")
         for u in users:
-            flags = [f for f, on in (("gesperrt", u["disabled"]), ("teilt Konzerte", u["share_marks"])) if on]
+            flags = [f for f, on in (("gesperrt", u["disabled"]), ("teilt Konzerte", u["share_marks"]),
+                                     ("Telegram", u["telegram"])) if on]
             print(f"{u['username']:20} angelegt {u['created'][:10]} · zuletzt aktiv {(u['last_seen'] or 'nie')[:16]}"
                   + (f" · {', '.join(flags)}" if flags else ""))
         return
@@ -160,6 +162,8 @@ def user_command(store: Store, a) -> None:
         print(f"Benutzer '{a.name}' gelöscht.")
     elif a.action == "logout":
         print(f"{store.delete_sessions(user['id'])} Sitzung(en) von '{a.name}' beendet.")
+    elif a.action == "telegram-off":
+        print("Telegram getrennt." if store.tg_unlink(user["id"]) else f"'{a.name}' hat kein Telegram verbunden.")
     elif a.action == "new-ical":
         store.update_user(user["id"], ical_token=new_token())
         print("Neuer Kalender-Link erzeugt – alte Abos funktionieren nicht mehr.")
@@ -182,7 +186,8 @@ def main(argv=None):
     ar.add_argument("--limit", type=int, default=0, help="max. Events pro Location")
     ar.add_argument("--save", action="store_true", help="Ergebnis in die Events übernehmen (z.B. nach Korrekturen)")
     us = sub.add_parser("user", help="Benutzer verwalten")
-    us.add_argument("action", choices=["add", "list", "passwd", "disable", "enable", "delete", "logout", "new-ical"])
+    us.add_argument("action", choices=["add", "list", "passwd", "disable", "enable", "delete", "logout", "new-ical",
+                                       "telegram-off"])
     us.add_argument("name", nargs="?")
     us.add_argument("--password-stdin", action="store_true", help="Passwort von stdin lesen (für Skripte)")
     a = p.parse_args(argv)
@@ -247,6 +252,8 @@ def main(argv=None):
         from .web.app import create_app
         if not a.no_scheduler:
             threading.Thread(target=scheduler_loop, args=(agent, cfg.settings.interval_hours), daemon=True).start()
+        if agent.user_bot:                  # Benutzer verbinden sich selbst über den Bot (README «Telegram pro Benutzer»)
+            threading.Thread(target=agent.user_bot.poll_forever, daemon=True).start()
         uvicorn.run(create_app(agent), host=a.host, port=a.port, log_level="warning")
 
 

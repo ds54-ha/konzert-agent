@@ -61,6 +61,22 @@ CREATE TABLE IF NOT EXISTS marks (    -- pro Benutzer: «Interessiert» / «Gehe
     PRIMARY KEY (user_id, event_uid)
 );
 CREATE INDEX IF NOT EXISTS idx_marks_event ON marks(event_uid);
+CREATE TABLE IF NOT EXISTS tg_chats (  -- pro Benutzer: verbundener Telegram-Chat (über den Benutzer-Bot)
+    user_id   INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    chat_id   TEXT NOT NULL,
+    chat_name TEXT,
+    prefs     TEXT DEFAULT '{}',   -- was gemeldet wird (JSON, siehe TG_PREFS)
+    linked    TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS tg_codes (  -- Einmal-Codes für «Telegram verbinden» (Deep-Link t.me/<bot>?start=<code>)
+    code    TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS meta (
+    key   TEXT PRIMARY KEY,
+    value TEXT
+);
 CREATE TABLE IF NOT EXISTS artists (
     key        TEXT PRIMARY KEY,   -- normalisierter Name | Länder-Hinweis
     data       TEXT NOT NULL,      -- ArtistInfo als JSON
@@ -179,7 +195,8 @@ class Store:
         with self.lock:
             rows = self.db.execute(
                 f"SELECT {self._USER_COLS}, (SELECT MAX(last_seen) FROM sessions s WHERE s.user_id = users.id)"
-                " AS last_seen FROM users ORDER BY username").fetchall()
+                " AS last_seen, EXISTS(SELECT 1 FROM tg_chats t WHERE t.user_id = users.id) AS telegram"
+                " FROM users ORDER BY username").fetchall()
         return [dict(r) for r in rows]
 
     def update_user(self, user_id: int, **fields):
@@ -193,6 +210,8 @@ class Store:
         with self.lock, self.db:
             self.db.execute("DELETE FROM sessions WHERE user_id=?", (user_id,))
             self.db.execute("DELETE FROM marks WHERE user_id=?", (user_id,))
+            self.db.execute("DELETE FROM tg_chats WHERE user_id=?", (user_id,))
+            self.db.execute("DELETE FROM tg_codes WHERE user_id=?", (user_id,))
             self.db.execute("DELETE FROM users WHERE id=?", (user_id,))
 
     def create_session(self, token_hash: str, user_id: int, days: int):
@@ -232,6 +251,74 @@ class Store:
     def count_users(self) -> int:
         with self.lock:
             return self.db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+
+    # ------------------------------------------------------------ Telegram pro Benutzer
+
+    # new: off | all | filter (nur Events, die zum gespeicherten Filter passen)
+    # cancelled: Absagen von Konzerten melden, die man markiert hat
+    TG_PREFS = {"new": "all", "filter": {}, "cancelled": True}
+
+    def tg_new_code(self, user_id: int, code: str, minutes: int):
+        now = datetime.now()
+        with self.lock, self.db:
+            self.db.execute("DELETE FROM tg_codes WHERE expires < ? OR user_id = ?", (_now(), user_id))
+            self.db.execute("INSERT INTO tg_codes (code, user_id, expires) VALUES (?,?,?)",
+                            (code, user_id, (now + timedelta(minutes=minutes)).isoformat(timespec="seconds")))
+
+    def tg_redeem(self, code: str, chat_id: str, chat_name: str) -> dict | None:
+        """Einmal-Code einlösen -> Chat mit dem Benutzer verbinden. None = unbekannt, abgelaufen oder gesperrt."""
+        with self.lock, self.db:
+            row = self.db.execute("SELECT c.user_id FROM tg_codes c JOIN users u ON u.id = c.user_id"
+                                  " WHERE c.code = ? AND c.expires >= ? AND u.disabled = 0", (code, _now())).fetchone()
+            self.db.execute("DELETE FROM tg_codes WHERE code = ?", (code,))
+            if row is None:
+                return None
+            self.db.execute("INSERT INTO tg_chats (user_id, chat_id, chat_name, prefs, linked) VALUES (?,?,?,?,?)"
+                            " ON CONFLICT(user_id) DO UPDATE SET chat_id=excluded.chat_id,"
+                            " chat_name=excluded.chat_name, linked=excluded.linked",
+                            (row["user_id"], str(chat_id), chat_name, json.dumps(self.TG_PREFS), _now()))
+        return self.user_by_id(row["user_id"])
+
+    def tg_chat(self, user_id: int) -> dict | None:
+        with self.lock:
+            row = self.db.execute("SELECT chat_id, chat_name, prefs, linked FROM tg_chats WHERE user_id=?",
+                                  (user_id,)).fetchone()
+        return None if row is None else {**dict(row), "prefs": {**self.TG_PREFS, **json.loads(row["prefs"] or "{}")}}
+
+    def tg_set_prefs(self, user_id: int, prefs: dict):
+        with self.lock, self.db:
+            self.db.execute("UPDATE tg_chats SET prefs=? WHERE user_id=?", (json.dumps(prefs), user_id))
+
+    def tg_unlink(self, user_id: int | None = None, chat_id: str | None = None) -> list[str]:
+        """Verbindung lösen – per Benutzer (Web/Befehl) oder per Chat (/stop, Bot blockiert). -> Benutzernamen"""
+        where, arg = ("t.user_id = ?", user_id) if user_id is not None else ("t.chat_id = ?", str(chat_id))
+        with self.lock, self.db:
+            names = [r[0] for r in self.db.execute(
+                f"SELECT u.username FROM tg_chats t JOIN users u ON u.id = t.user_id WHERE {where}", (arg,))]
+            self.db.execute(f"DELETE FROM tg_chats WHERE {where.replace('t.', '')}", (arg,))
+        return names
+
+    def tg_users_for_chat(self, chat_id: str) -> list[str]:
+        with self.lock:
+            return [r[0] for r in self.db.execute("SELECT u.username FROM tg_chats t JOIN users u ON u.id = t.user_id"
+                                                  " WHERE t.chat_id = ? ORDER BY u.username", (str(chat_id),))]
+
+    def tg_recipients(self) -> list[dict]:
+        """Alle verbundenen, nicht gesperrten Benutzer mit ihren Einstellungen."""
+        with self.lock:
+            rows = self.db.execute("SELECT u.id AS user_id, u.username, t.chat_id, t.prefs FROM tg_chats t"
+                                   " JOIN users u ON u.id = t.user_id WHERE u.disabled = 0").fetchall()
+        return [{**dict(r), "prefs": {**self.TG_PREFS, **json.loads(r["prefs"] or "{}")}} for r in rows]
+
+    def get_meta(self, key: str, default: str | None = None) -> str | None:
+        with self.lock:
+            row = self.db.execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()
+        return row[0] if row else default
+
+    def set_meta(self, key: str, value: str):
+        with self.lock, self.db:
+            self.db.execute("INSERT INTO meta (key, value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                            (key, value))
 
     # ------------------------------------------------------------ Markierungen
 

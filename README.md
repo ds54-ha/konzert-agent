@@ -7,7 +7,7 @@ Läuft als ein kleiner Docker-Container (≈ 60 MB RAM) – gedacht für den N10
 ## Start
 
 ```bash
-cp .env.example .env          # Telegram-Token + Chat-ID eintragen
+cp .env.example .env          # Telegram-Bot-Token eintragen
 docker compose up -d --build
 ```
 
@@ -15,13 +15,10 @@ Web-Kalender: `http://<homelab>:8080`. Der erste Lauf startet ein paar Sekunden 
 importiert alle Events still (kein Telegram-Spam). Ab dem zweiten Lauf (Standard alle 6 h) kommen nur
 noch neu angekündigte Konzerte und Absagen.
 
-**Telegram einrichten:** Bei [@BotFather](https://t.me/BotFather) `/newbot` → Token. Dem Bot eine
-Nachricht schicken, dann `https://api.telegram.org/bot<TOKEN>/getUpdates` öffnen → `chat.id`.
-Testen mit:
-
-```bash
-docker compose exec konzert-agent python -m konzert_agent test-notify
-```
+**Telegram einrichten:** Bei [@BotFather](https://t.me/BotFather) `/newbot` → Token als
+`TELEGRAM_USER_BOT_TOKEN` in `.env`. Dann anmelden und im Tab **Meine** → **Telegram verbinden** – auch als
+Admin; «Neue Konzerte: Alle» entspricht der früheren Meldung an einen festen Chat. Details unter
+[Telegram pro Benutzer](#telegram-pro-benutzer).
 
 ## Oberfläche
 
@@ -54,7 +51,7 @@ docker compose exec konzert-agent python -m konzert_agent user list
 
 Weitere: `user passwd <name>` (beendet auch alle Sitzungen), `user disable|enable <name>`,
 `user delete <name>`, `user logout <name>` (alle Sitzungen beenden), `user new-ical <name>`
-(neuer Kalender-Link, der alte wird ungültig). Passwörter: mindestens 10 Zeichen.
+(neuer Kalender-Link, der alte wird ungültig), `user telegram-off <name>` (Telegram trennen). Passwörter: mindestens 10 Zeichen.
 
 Nach 5 Fehlversuchen in 15 Minuten sind der Benutzername und die IP 15 Minuten gesperrt (`auth:` in
 `config.yaml`).
@@ -152,6 +149,29 @@ Gezählt werden nur sichere Treffer. Antwortet eine Datenbank nicht, wird das Ev
 erneut nachgeschlagen. Kurze oder häufige Namen («Elin», «Sports») werden oft der falschen
 Band zugeordnet – mit `artists <location>` prüfen und in `config.yaml` unter `artists:` korrigieren
 (`overrides` pro Bandname, `titles` für Titel ohne echte Bandnamen), danach `artists --save`.
+
+## Telegram pro Benutzer
+
+Jeder angemeldete Benutzer kann sich selbst mit Telegram verbinden: Tab **Meine** → **Telegram verbinden**
+→ «In Telegram öffnen» → **Start**. Dahinter steckt ein Einmal-Link (`t.me/<bot>?start=<code>`, 15 Minuten
+gültig); niemand muss eine Chat-ID herausfinden. Danach wählt jeder selbst:
+
+- **Neue Konzerte:** Aus / Alle / Nur passende (Locations, Typ, Genre, Popularität – in der Seitenleiste
+  einstellen, dann «aktuelle Filter übernehmen»)
+- **Absagen** von Konzerten, die man markiert hat
+
+Trennen im Tab «Meine», mit `/stop` im Chat oder als Admin mit `user telegram-off <name>`. Wer den Bot
+blockiert, wird automatisch getrennt. Fremde, die dem Bot schreiben, bekommen nur einen kurzen Hinweis.
+
+**Einrichten:** Bot bei [@BotFather](https://t.me/BotFather) anlegen (`/newbot`), Token als
+`TELEGRAM_USER_BOT_TOKEN` in `.env`, dann `docker compose up -d`. Ohne Token ist die Funktion ausgeblendet.
+Der Agent liest die Nachrichten an den Bot (Long-Polling – kein Port und keine öffentliche Adresse nötig);
+das darf pro Bot nur ein Programm. Also keinen Bot nehmen, den schon z.B. Home Assistant liest – sonst steht
+«409» im Log. Steht dort «409 … webhook», einmal `https://api.telegram.org/bot<TOKEN>/deleteWebhook` öffnen.
+
+**Fester Chat (optional):** `notifiers` → `type: telegram` in `config.yaml` schickt alles an eine Chat-ID,
+unabhängig von Benutzern (standardmässig aus). Derselbe Bot-Token geht auch dafür – Senden stört das Lesen
+nicht. Testen mit `python -m konzert_agent test-notify`.
 
 ## Weitere Benachrichtigungen
 

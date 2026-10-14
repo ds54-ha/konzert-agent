@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from starlette.applications import Starlette
+from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from starlette.routing import Mount, Route
@@ -15,6 +16,7 @@ from .. import __version__
 from ..agent import Agent
 from ..auth import new_token
 from ..kinds import event_kind
+from ..userbot import clean_prefs
 from .security import AuthMiddleware, login_routes
 
 STATIC = Path(__file__).parent / "static"
@@ -147,6 +149,59 @@ def create_app(agent: Agent):
         agent.store.update_user(u["id"], ical_token=token)
         return JSONResponse({"ical_token": token})
 
+    async def api_telegram(req):
+        """Telegram pro Benutzer: Status (GET), Einstellungen (PUT), trennen (DELETE)."""
+        u, bot = req.state.user, agent.user_bot
+        if u is None:
+            return JSONResponse({"error": "Nicht angemeldet"}, 401)
+        if bot is None:
+            return JSONResponse({"available": False})
+        if req.method == "DELETE":
+            chat = agent.store.tg_chat(u["id"])
+            agent.store.tg_unlink(u["id"])
+            if chat:
+                await run_in_threadpool(bot.send, chat["chat_id"], "Getrennt – du bekommst keine Meldungen mehr.")
+            return JSONResponse({"ok": True})
+        if req.method == "PUT":
+            try:
+                prefs = clean_prefs(await req.json())
+            except ValueError:
+                prefs = None
+            if prefs is None:
+                return JSONResponse({"error": "Ungültige Einstellungen"}, 400)
+            if not agent.store.tg_chat(u["id"]):
+                return JSONResponse({"error": "Telegram ist nicht verbunden"}, 409)
+            agent.store.tg_set_prefs(u["id"], prefs)
+        chat = agent.store.tg_chat(u["id"])
+        return JSONResponse({"available": True, "linked": bool(chat), "link_minutes": bot.link_minutes,
+                             **({"chat": chat["chat_name"], "since": chat["linked"], "prefs": chat["prefs"]} if chat else {})})
+
+    async def api_telegram_link(req):
+        """Einmal-Link t.me/<bot>?start=<code> – in Telegram «Start» drücken verbindet den Chat."""
+        u, bot = req.state.user, agent.user_bot
+        if u is None:
+            return JSONResponse({"error": "Nicht angemeldet"}, 401)
+        if bot is None:
+            return JSONResponse({"error": "Telegram ist nicht eingerichtet"}, 404)
+        try:
+            url = await run_in_threadpool(bot.new_link, u["id"])
+        except Exception as e:  # noqa: BLE001 – z.B. falscher Token, Telegram nicht erreichbar
+            return JSONResponse({"error": f"Telegram nicht erreichbar: {type(e).__name__}"}, 502)
+        return JSONResponse({"url": url, "minutes": bot.link_minutes})
+
+    async def api_telegram_test(req):
+        u, bot = req.state.user, agent.user_bot
+        if u is None:
+            return JSONResponse({"error": "Nicht angemeldet"}, 401)
+        chat = agent.store.tg_chat(u["id"]) if bot else None
+        if not chat:
+            return JSONResponse({"error": "Telegram ist nicht verbunden"}, 409)
+        try:
+            ok = await run_in_threadpool(bot.send, chat["chat_id"], "🎸 Test: Meldungen vom Konzertkalender kommen an.")
+        except Exception as e:  # noqa: BLE001
+            return JSONResponse({"error": f"Senden fehlgeschlagen: {type(e).__name__}"}, 502)
+        return JSONResponse({"ok": ok} if ok else {"error": "Chat nicht erreichbar (Bot blockiert?) – Verbindung gelöst"})
+
     async def personal_ics(req):
         """Kalender-Abo mit geheimem Token – Kalender-Apps können sich nicht anmelden.
         Standard: die eigenen markierten Konzerte (?status=going nur «Gehe hin»); ?all=1 = alle Events wie
@@ -243,6 +298,9 @@ def create_app(agent: Agent):
         Route("/api/marks/{uid:path}", api_mark, methods=["PUT", "DELETE"]),
         Route("/api/settings", api_settings, methods=["PUT"]),
         Route("/api/ical-token", api_new_ical, methods=["POST"]),
+        Route("/api/telegram", api_telegram, methods=["GET", "PUT", "DELETE"]),
+        Route("/api/telegram/link", api_telegram_link, methods=["POST"]),
+        Route("/api/telegram/test", api_telegram_test, methods=["POST"]),
         Route("/calendar.ics", ics),
         Route("/ical/{token}.ics", personal_ics),
         Route("/health", health),

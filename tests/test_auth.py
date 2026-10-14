@@ -194,8 +194,8 @@ class WebAuthTests(unittest.TestCase):
         self.assertIn("user add", call(self.app, "GET", "/login")["text"])
 
 
-class MarkTests(unittest.TestCase):
-    """«Interessiert» / «Gehe hin» + Ticket, Teilen per Opt-in (gegenseitig)."""
+class MemberBase(unittest.TestCase):
+    """Zwei Events, zwei angemeldete Benutzer (Anna, Ben) – Grundlage für Tests mit Login."""
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -224,6 +224,10 @@ class MarkTests(unittest.TestCase):
         r = call(self.app, method, path, h, json.dumps(data).encode() if data is not None else b"")
         r["json"] = json.loads(r["text"]) if r["text"].startswith("{") else None
         return r
+
+
+class MarkTests(MemberBase):
+    """«Interessiert» / «Gehe hin» + Ticket, Teilen per Opt-in (gegenseitig)."""
 
     def test_set_change_remove(self):
         r = self.req("PUT", "/api/marks/kiff%3A1%2Fa", self.c_anna, {"status": "going"})
