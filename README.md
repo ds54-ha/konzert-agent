@@ -31,7 +31,9 @@ und der persönliche Kalender-Link. Soll die Seite ganz hinter dem Login sein: `
 
 Angemeldet kann man Konzerte markieren: **☆ Interessiert** oder **✓ Gehe hin**, bei «Gehe hin» mit
 Ticket-Status (noch nicht / selbst gekauft / hat jemand anderes). Nochmals klicken entfernt die Markierung.
-Unter «Meine Konzerte» lässt sich danach filtern. Mit **Markierungen teilen** sehen andere, wohin man geht –
+Unter «Meine Konzerte» lässt sich danach filtern. Der Tab **Meine** (oder Klick auf den
+eigenen Namen, Direktlink `/#meine`) zeigt alle markierten Konzerte auf einen Blick: zuerst die ohne Ticket,
+dann «Gehe hin», «Interessiert» und (zum Aufklappen) die vergangenen. Mit **Markierungen teilen** sehen andere, wohin man geht –
 gegenseitig: nur wer selbst teilt, sieht die anderen (Name und Status, nicht den Ticket-Status).
 
 Benutzer werden nur per Befehl angelegt (keine Registrierung):

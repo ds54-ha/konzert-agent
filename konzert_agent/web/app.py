@@ -50,14 +50,24 @@ def create_app(agent: Agent):
     async def index(req):
         return FileResponse(STATIC / "index.html")
 
-    async def api_events(req):
-        evs = query_events(req)
+    def decorate(evs: list[dict]) -> list[dict]:
         cutoff = (datetime.now() - timedelta(days=cfg.settings.new_badge_days)).isoformat()
         for e in evs:
+            m = venue_meta.get(e["venue_id"], {})
             e["is_new"] = e["first_seen"] >= cutoff
-            e["venue"] = venue_meta[e["venue_id"]]["name"]
-            e["city"] = venue_meta[e["venue_id"]]["city"]
-        return JSONResponse(evs)
+            e["venue"] = m.get("name", e["venue_id"])        # Location inzwischen abgeschaltet -> ID
+            e["city"] = m.get("city", "")
+        return evs
+
+    async def api_events(req):
+        return JSONResponse(decorate(query_events(req)))
+
+    async def api_my_events(req):
+        """Dashboard «Meine»: alle markierten Events inkl. vergangener, unabhängig von Filtern."""
+        u = req.state.user
+        if u is None:
+            return JSONResponse({"error": "Nicht angemeldet"}, 401)
+        return JSONResponse(decorate(agent.store.marked_events(u["id"])))
 
     async def api_venues(req):
         runs, counts = agent.store.runs(), agent.store.counts()
@@ -177,6 +187,7 @@ def create_app(agent: Agent):
         Route("/api/venues", api_venues),
         Route("/api/run", api_run, methods=["POST"]),
         Route("/api/marks", api_marks),
+        Route("/api/my-events", api_my_events),
         Route("/api/marks/{uid:path}", api_mark, methods=["PUT", "DELETE"]),
         Route("/api/settings", api_settings, methods=["PUT"]),
         Route("/calendar.ics", ics),

@@ -21,8 +21,8 @@
     - [x] Ticket-Status: «Ja, selbst gekauft» / «Ja, jemand anderes hat sie» / «Noch nicht»
     - [x] Teilen per Opt-in, gegenseitig (nur wer teilt, sieht andere); andere sehen Name + Status,
           nicht den Ticket-Status. Filter «Meine Konzerte»: Markiert / Gehe hin / Ohne Ticket / Andere gehen
-  - [ ] 4c. Eigene Unterseite pro Benutzer: Dashboard mit allen markierten Konzerten
-            (anstehend, Tickets fehlen noch, vergangene)
+  - [x] 4c. Dashboard «Meine» (Tab, Klick auf den Namen oder /#meine): Ticket fehlt noch, Gehe hin,
+            Interessiert, Vergangen – unabhängig von den Filtern (v1.8.0)
   - [ ] 4d. Persönlicher iCal-Link mit den markierten Konzerten (Status im Titel/Beschreibung),
             Link erneuerbar
   - Zugang von aussen: eigene Domain über Cloudflare → nginx-Reverse-Proxy (noch nicht aktiviert)

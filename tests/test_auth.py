@@ -263,6 +263,20 @@ class MarkTests(unittest.TestCase):
         self.req("PUT", "/api/settings", self.c_anna, {"share_marks": False})
         self.assertEqual(self.req("GET", "/api/marks", self.c_ben)["json"]["others"], {})
 
+    def test_my_events_dashboard(self):
+        self.assertEqual(self.req("GET", "/api/my-events")["status"], 401)                       # Gast
+        past = Event("kiff", "alt", "Band Alt", date.today() - timedelta(days=30))
+        self.store.upsert([past])
+        self.store.set_mark(self.anna, past.uid, "going", "own")
+        self.store.set_mark(self.anna, "kiff:2", "interested")
+        self.store.set_mark(self.ben, "kiff:1/a", "going")                                    # fremd
+        r = self.req("GET", "/api/my-events", self.c_anna)
+        self.assertEqual(r["status"], 200)
+        evs = json.loads(r["text"])
+        self.assertEqual([e["uid"] for e in evs], ["kiff:alt", "kiff:2"])                      # inkl. vergangen
+        self.assertEqual(evs[0]["mark"], {**evs[0]["mark"], "status": "going", "ticket": "own"})
+        self.assertEqual(evs[1]["venue"], "kiff")                       # Location nicht (mehr) konfiguriert
+
     def test_csrf_and_user_delete(self):
         r = call(self.app, "PUT", "/api/marks/kiff%3A2", {"cookie": self.c_anna, "origin": "https://evil.example",
                                                            "host": "test", "content-type": "application/json"},

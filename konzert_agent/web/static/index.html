@@ -96,6 +96,24 @@ input[type=search]:focus{outline:none;border-color:var(--ink)}
 .marks select.todo{border-color:var(--warn);color:var(--warn)}
 .friends{color:var(--muted)}
 .hint{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.4}
+.layout.solo{grid-template-columns:1fr}
+.layout.solo aside{display:none}
+.dash-h{font-size:22px;font-weight:800;letter-spacing:-.02em;margin:28px 0 6px;display:flex;align-items:baseline;gap:10px}
+.dash-h small{font-size:13px;color:var(--muted);font-weight:500}
+.dash-h.warn{color:var(--warn)}
+.stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 16px;min-width:120px}
+.stat b{display:block;font-size:26px;font-weight:800;letter-spacing:-.02em}
+.stat span{font-size:12px;color:var(--muted)}
+.stat.warn b{color:var(--warn)}
+.dash-set{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-top:30px;max-width:640px}
+details.past summary{cursor:pointer;list-style:none}
+details.past summary::-webkit-details-marker{display:none}
+details.past summary .dash-h::before{content:"▸ ";color:var(--muted)}
+details.past[open] summary .dash-h::before{content:"▾ "}
+#whoName{text-decoration:none;color:inherit}
+#whoName:hover{color:var(--ink)}
+.seg button .n{background:var(--warn);color:#fff;border-radius:999px;font-size:10px;padding:1px 6px;margin-left:5px}
 .ev .meta{color:var(--muted);font-size:13px;margin-top:3px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .ev .time{font-family:"JetBrains Mono",monospace;font-size:13px;min-width:44px;padding-top:2px;color:var(--muted)}
 .badge{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:2px 7px;border-radius:999px}
@@ -161,7 +179,7 @@ input[type=search]:focus{outline:none;border-color:var(--ink)}
     <a class="btn" id="icsLink" href="calendar.ics" title="In Kalender-App abonnieren (aktuelle Filter)">📅 iCal-Abo</a>
     <button class="btn primary" id="runBtn" hidden title="Alle Locations jetzt neu einlesen">Jetzt prüfen</button>
     <a class="btn primary" id="loginBtn" href="login" hidden>Anmelden</a>
-    <span class="who" id="who" hidden><span id="whoName"></span>
+    <span class="who" id="who" hidden><a id="whoName" href="#meine" title="Meine Konzerte"></a>
       <form method="post" action="logout"><button class="btn" type="submit">Abmelden</button></form></span>
   </div>
 </header>
@@ -191,7 +209,7 @@ input[type=search]:focus{outline:none;border-color:var(--ink)}
     <div class="group" id="mineGroup" hidden>
       <div class="label">Meine Konzerte</div>
       <div class="chips" id="mine"></div>
-      <label class="toggle" style="margin-top:10px"><input type="checkbox" id="share"> Markierungen teilen</label>
+      <label class="toggle" style="margin-top:10px"><input type="checkbox" class="share-toggle"> Markierungen teilen</label>
       <div class="hint">Andere Angemeldete sehen, wohin du gehst – und du siehst, wohin sie gehen (nur wer auch teilt).</div>
     </div>
     <div class="group">
@@ -207,7 +225,7 @@ input[type=search]:focus{outline:none;border-color:var(--ink)}
   <main>
     <div class="toolbar">
       <div class="tools">
-        <div class="seg" id="viewSeg"><button data-view="list" class="on">Liste</button><button data-view="month">Monat</button></div>
+        <div class="seg" id="viewSeg"><button data-view="list" class="on">Liste</button><button data-view="month">Monat</button><button data-view="mine" id="mineTab" hidden>Meine</button></div>
         <div class="seg" id="sortSeg" title="Sortierung der Liste"><button data-sort="date" class="on">Datum</button><button data-sort="pop">Popularität</button></div>
       </div>
       <span class="count" id="count"></span>
@@ -232,7 +250,7 @@ const store = {
   set(k, v) { try { localStorage.setItem("ka:"+k, JSON.stringify(v)); } catch {} }
 };
 
-let venues = [], events = [], meta = {}, me = null, marks = {mine: {}, others: {}, share: false};
+let venues = [], events = [], meta = {}, me = null, marks = {mine: {}, others: {}, share: false}, myEvents = [];
 const state = {
   q: "", range: store.get("range", "all"), city: store.get("city", ""), onlyNew: false,
   hidden: new Set(store.get("hidden", [])), view: store.get("view", "list"), cal: new Date(),
@@ -240,6 +258,7 @@ const state = {
   mine: store.get("mine", "")
 };
 state.cal.setDate(1);
+if (location.hash === "#meine") state.view = "mine";
 
 const RANGES = [["all","Alle"],["week","7 Tage"],["month","30 Tage"],["weekend","Wochenende"]];
 const POP_LEVELS = [["lokal","unter 1000 Fans"],["Szene","1000 – 20 000 Fans"],["bekannt","20 000 – 300 000 Fans"],["Star","über 300 000 Fans"]];
@@ -322,7 +341,7 @@ function renderSidebar() {
   $("#mineGroup").hidden = !isMember();
   $("#mine").innerHTML = MINE.filter(([k]) => k !== "others" || marks.share)
     .map(([k, l]) => `<button class="chip ${state.mine===k?"on":""}" data-k="${k}">${l}</button>`).join("");
-  $("#share").checked = marks.share;
+  document.querySelectorAll(".share-toggle").forEach(c => c.checked = marks.share);
   $("#pops").innerHTML = [`<button class="chip ${state.pops.size?"":"on"}" data-k="">Alle</button>`,
     ...POP_LEVELS.map(([k, tip]) => `<button class="chip ${state.pops.has(k)?"on":""}" data-k="${k}" title="${tip}">${k}</button>`)].join("");
   $("#venues").innerHTML = venues.map(v => {
@@ -395,16 +414,54 @@ function renderList(list) {
   return html;
 }
 
+function datedRow(e) {                     // Event mit vollem Datum (für Listen, die nicht nach Tag gruppiert sind)
+  const d = parse(e.date);
+  return `<div class="day"><div class="dlabel ${e.date===todayIso?"today":""}"><div class="wd">${e.date===todayIso?"heute":WD[d.getDay()]}</div>
+    <div class="dn">${d.getDate()}</div><div class="mo">${MONTHS[d.getMonth()].slice(0,3)} ${d.getFullYear() % 100}</div></div>
+    <div class="evs">${evCard(e)}</div></div>`;
+}
+
 function renderByPopularity(list) {
   if (!list.length) return `<div class="empty">Keine Konzerte für diese Filter.</div>`;
   const pop = e => x(e).popularity ?? -1;
-  const sorted = [...list].sort((a, b) => pop(b) - pop(a) || a.date.localeCompare(b.date));
-  return sorted.map(e => {
-    const d = parse(e.date);
-    return `<div class="day"><div class="dlabel ${e.date===todayIso?"today":""}"><div class="wd">${e.date===todayIso?"heute":WD[d.getDay()]}</div>
-      <div class="dn">${d.getDate()}</div><div class="mo">${MONTHS[d.getMonth()].slice(0,3)} ${d.getFullYear() % 100}</div></div>
-      <div class="evs">${evCard(e)}</div></div>`;
-  }).join("");
+  return [...list].sort((a, b) => pop(b) - pop(a) || a.date.localeCompare(b.date)).map(datedRow).join("");
+}
+
+const isPast = e => (e.end_date || e.date) < todayIso;
+
+function mineGroups() {
+  // Markierung aus marks.mine (aktuell, auch nach Änderungen ohne Neuladen), sonst die vom Server
+  const withMark = myEvents.map(e => ({e, m: marks.mine[e.uid]})).filter(o => o.m);
+  const up = withMark.filter(o => !isPast(o.e));
+  return {
+    noTicket: up.filter(o => o.m.status === "going" && o.m.ticket === "none").map(o => o.e),
+    going: up.filter(o => o.m.status === "going" && o.m.ticket !== "none").map(o => o.e),
+    interested: up.filter(o => o.m.status === "interested").map(o => o.e),
+    past: withMark.filter(o => isPast(o.e)).map(o => o.e).reverse(),
+  };
+}
+
+function renderMine() {
+  const g = mineGroups();
+  const settings = `<div class="dash-set">
+    <label class="toggle"><input type="checkbox" class="share-toggle" ${marks.share?"checked":""}> Markierungen teilen</label>
+    <div class="hint">Andere Angemeldete sehen dann, wohin du gehst (ohne Ticket-Status) – und du siehst, wohin sie gehen.
+      Nur wer selbst teilt, sieht die anderen.</div></div>`;
+  if (!myEvents.length)
+    return `<div class="empty">Noch nichts markiert – in der Liste bei einem Konzert ☆ Interessiert oder ✓ Gehe hin anklicken.</div>${settings}`;
+  const stat = (n, l, cls = "") => `<div class="stat ${cls}"><b>${n}</b><span>${l}</span></div>`;
+  const section = (title, list, cls = "", note = "") => !list.length ? "" :
+    `<div class="dash-h ${cls}">${title} <small>${list.length}${note}</small></div>${list.map(datedRow).join("")}`;
+  const goingCount = g.going.length + g.noTicket.length;
+  return `<div class="stats">${stat(goingCount, "Konzerte, an die du gehst")}${stat(g.noTicket.length, "davon noch ohne Ticket", g.noTicket.length ? "warn" : "")}
+      ${stat(g.interested.length, "interessiert")}${stat(g.past.length, "vergangen")}</div>
+    ${section("🎟 Ticket fehlt noch", g.noTicket, "warn")}
+    ${section("✓ Gehe hin", g.going)}
+    ${section("☆ Interessiert", g.interested)}
+    ${!goingCount && !g.interested.length ? `<div class="empty">Keine anstehenden markierten Konzerte.</div>` : ""}
+    ${g.past.length ? `<details class="past"><summary><div class="dash-h">Vergangen <small>${g.past.length}</small></div></summary>
+      ${g.past.map(datedRow).join("")}</details>` : ""}
+    ${settings}`;
 }
 
 function pillMark(e) {
@@ -437,12 +494,20 @@ function renderMonth(list) {
 }
 
 function render() {
+  if (state.view === "mine" && !isMember()) state.view = "list";
+  const mine = state.view === "mine";
+  $(".layout").classList.toggle("solo", mine);
+  $("#filtersBtn").hidden = mine;
+  if (location.hash !== (mine ? "#meine" : "") && (mine || location.hash === "#meine"))
+    history.replaceState(null, "", mine ? "#meine" : location.pathname + location.search);
+  const missing = mineGroups().noTicket.length;
+  $("#mineTab").innerHTML = "Meine" + (missing ? `<span class="n" title="ohne Ticket">${missing}</span>` : "");
   const list = visible();
-  $("#count").textContent = `${list.length} Event${list.length===1?"":"s"}`;
+  $("#count").textContent = mine ? `${myEvents.length} markiert` : `${list.length} Event${list.length===1?"":"s"}`;
   document.querySelectorAll("#viewSeg button").forEach(b => b.classList.toggle("on", b.dataset.view === state.view));
   document.querySelectorAll("#sortSeg button").forEach(b => b.classList.toggle("on", b.dataset.sort === state.sort));
-  $("#sortSeg").hidden = state.view === "month" || !events.some(e => x(e).popularity != null);
-  $("#view").innerHTML = state.view === "month" ? renderMonth(list)
+  $("#sortSeg").hidden = state.view !== "list" || !events.some(e => x(e).popularity != null);
+  $("#view").innerHTML = mine ? renderMine() : state.view === "month" ? renderMonth(list)
     : state.sort === "pop" && !$("#sortSeg").hidden ? renderByPopularity(list) : renderList(list);
   if (state.view === "month") {
     $("#prevM").onclick = () => { state.cal.setMonth(state.cal.getMonth() - 1); render(); };
@@ -472,6 +537,8 @@ async function load() {
   const [m, v, e] = await Promise.all([api("api/me"), api("api/venues"), api("api/events")]);
   me = m; venues = v.venues; meta = v; events = e;
   marks = isMember() ? await api("api/marks") : {mine: {}, others: {}, share: false};
+  myEvents = isMember() ? await api("api/my-events") : [];
+  $("#mineTab").hidden = !isMember();
   // Gäste sehen nur den Kalender; Funktionen für Angemeldete erst nach «Anmelden»
   const member = !!(me && me.user), guest = !!(me && me.auth && !me.user);
   $("#who").hidden = !member;
@@ -498,7 +565,12 @@ $("#venues").addEventListener("change", e => {
 });
 $("#allV").onclick = () => { state.hidden.clear(); store.set("hidden", []); renderSidebar(); render(); };
 $("#noneV").onclick = () => { venues.forEach(v => state.hidden.add(v.id)); store.set("hidden", [...state.hidden]); renderSidebar(); render(); };
-document.querySelectorAll("#viewSeg button").forEach(b => b.onclick = () => { state.view = b.dataset.view; store.set("view", state.view); render(); });
+document.querySelectorAll("#viewSeg button").forEach(b => b.onclick = () => {
+  state.view = b.dataset.view;
+  if (state.view !== "mine") store.set("view", state.view);      // «Meine» nur per Link/Klick, nicht als Standard
+  render(); window.scrollTo(0, 0);
+});
+window.addEventListener("hashchange", () => { if (location.hash === "#meine" && state.view !== "mine") { state.view = "mine"; render(); } });
 document.querySelectorAll("#sortSeg button").forEach(b => b.onclick = () => { state.sort = b.dataset.sort; store.set("sort", state.sort); render(); });
 function toggleChip(set, key, k) {          // «Alle» leert die Auswahl, sonst Mehrfachauswahl
   if (k === "") set.clear(); else set.has(k) ? set.delete(k) : set.add(k);
@@ -507,7 +579,8 @@ function toggleChip(set, key, k) {          // «Alle» leert die Auswahl, sonst
 $("#genres").addEventListener("click", e => { const b = e.target.closest("[data-k]"); if (b) toggleChip(state.genres, "genres", b.dataset.k); });
 $("#pops").addEventListener("click", e => { const b = e.target.closest("[data-k]"); if (b) toggleChip(state.pops, "pops", b.dataset.k); });
 $("#mine").addEventListener("click", e => { const b = e.target.closest("[data-k]"); if (!b) return; state.mine = b.dataset.k; store.set("mine", state.mine); renderSidebar(); render(); });
-$("#share").addEventListener("change", async e => {
+document.addEventListener("change", async e => {
+  if (!e.target.classList.contains("share-toggle")) return;
   await api("api/settings", { method: "PUT", headers: {"content-type": "application/json"}, body: JSON.stringify({share_marks: e.target.checked}) });
   marks = await api("api/marks");
   toast(e.target.checked ? "Markierungen werden geteilt" : "Markierungen sind wieder privat");
@@ -520,6 +593,7 @@ async function saveMark(uid, mark) {        // mark null = entfernen
                  : await api(path, { method: "DELETE" });
   if (r.error) { toast(r.error); return; }
   if (mark) marks.mine[uid] = r.mark; else delete marks.mine[uid];
+  if (mark && !myEvents.some(e => e.uid === uid)) myEvents = await api("api/my-events");   // neu markiert
   render();
 }
 $("#view").addEventListener("click", e => {

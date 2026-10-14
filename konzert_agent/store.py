@@ -293,14 +293,30 @@ class Store:
         sql += " ORDER BY date, time, title"
         with self.lock:
             rows = self.db.execute(sql, args).fetchall()
+        return [self._event_row(r) for r in rows]
+
+    def marked_events(self, user_id: int) -> list[dict]:
+        """Alle vom Benutzer markierten Events (auch vergangene), mit seiner Markierung unter «mark»."""
+        with self.lock:
+            rows = self.db.execute(
+                "SELECT e.*, m.status AS mark_status, m.ticket AS mark_ticket, m.updated AS mark_updated"
+                " FROM marks m JOIN events e ON e.uid = m.event_uid WHERE m.user_id = ?"
+                " ORDER BY e.date, e.time, e.title", (user_id,)).fetchall()
         out = []
         for r in rows:
-            d = dict(r)
-            d["tags"] = json.loads(d["tags"] or "[]")
-            d["extra"] = json.loads(d["extra"] or "{}")
-            d["sold_out"], d["cancelled"] = bool(d["sold_out"]), bool(d["cancelled"])
+            d = self._event_row(r)
+            d["mark"] = {"status": d.pop("mark_status"), "ticket": d.pop("mark_ticket"),
+                         "updated": d.pop("mark_updated")}
             out.append(d)
         return out
+
+    @staticmethod
+    def _event_row(r) -> dict:
+        d = dict(r)
+        d["tags"] = json.loads(d["tags"] or "[]")
+        d["extra"] = json.loads(d["extra"] or "{}")
+        d["sold_out"], d["cancelled"] = bool(d["sold_out"]), bool(d["cancelled"])
+        return d
 
     def runs(self) -> dict[str, dict]:
         with self.lock:
