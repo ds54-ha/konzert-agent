@@ -14,6 +14,7 @@ from starlette.staticfiles import StaticFiles
 from .. import __version__
 from ..agent import Agent
 from ..auth import new_token
+from ..kinds import event_kind
 from .security import AuthMiddleware, login_routes
 
 STATIC = Path(__file__).parent / "static"
@@ -42,7 +43,11 @@ def create_app(agent: Agent):
         if p.get("raw") != "1":
             evs = agent.filtered_events(evs)
         # mehrfach erlaubt: ?genre=Metal&genre=Rock (Genre-Namen enthalten Kommas, z.B. «Soul, R&B & Funk»)
-        genres, pops = set(p.getlist("genre")), set(p.getlist("pop"))
+        for e in evs:
+            e["kind"] = event_kind(e["title"], e["tags"])
+        genres, pops, kinds = set(p.getlist("genre")), set(p.getlist("pop")), set(p.getlist("kind"))
+        if kinds:
+            evs = [e for e in evs if e["kind"] in kinds]
         if genres:
             evs = [e for e in evs if genres & set(e["extra"].get("genres") or [])]
         if pops:
@@ -59,6 +64,7 @@ def create_app(agent: Agent):
             e["is_new"] = e["first_seen"] >= cutoff
             e["venue"] = m.get("name", e["venue_id"])        # Location inzwischen abgeschaltet -> ID
             e["city"] = m.get("city", "")
+            e.setdefault("kind", event_kind(e["title"], e["tags"]))
         return evs
 
     async def api_events(req):

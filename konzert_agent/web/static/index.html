@@ -6,6 +6,7 @@
 <title>Konzertkalender</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="static/theme.js"></script>
 <style>
 :root{
   --bg:#f4f1ea; --panel:#fffdf8; --ink:#16130f; --muted:#6f685d; --line:#e2dccf;
@@ -97,6 +98,20 @@ input[type=search]:focus{outline:none;border-color:var(--ink)}
 .friends{color:var(--muted)}
 .hint{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.4}
 .layout.solo{grid-template-columns:1fr}
+.custom-range{display:flex;align-items:center;gap:6px;margin-top:10px}
+.custom-range input{flex:1;min-width:0;padding:6px 8px;border:1.5px solid var(--line);border-radius:8px;background:var(--panel);font-size:13px}
+.custom-range input:focus{outline:none;border-color:var(--ink)}
+.city-h{display:flex;align-items:center;gap:6px;padding:5px 4px;border-radius:8px;font-size:14px;font-weight:600}
+.city-h:hover{background:var(--chip)}
+.city-h input{accent-color:var(--accent)}
+.city-h .caret{border:none;background:none;cursor:pointer;width:20px;padding:0;color:var(--muted);font-size:12px}
+.city-h .nm{flex:1;cursor:pointer}
+.city-h .n{margin-left:auto;color:var(--muted);font-size:12px;font-weight:400}
+.city-v{padding-left:18px}
+.seg.sm button{padding:5px 11px;font-size:12px}
+.swatches{display:flex;gap:8px;margin-top:12px}
+.swatch{width:24px;height:24px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;box-shadow:inset 0 0 0 2px var(--bg)}
+.swatch.on{border-color:var(--ink)}
 .layout.solo aside{display:none}
 .dash-h{font-size:22px;font-weight:800;letter-spacing:-.02em;margin:28px 0 6px;display:flex;align-items:baseline;gap:10px}
 .dash-h small{font-size:13px;color:var(--muted);font-weight:500}
@@ -194,10 +209,17 @@ details.past[open] summary .dash-h::before{content:"▾ "}
     <div class="group">
       <div class="label">Zeitraum</div>
       <div class="chips" id="range"></div>
+      <div class="custom-range" id="customRange" hidden>
+        <input type="date" id="dFrom" aria-label="von"><span>–</span><input type="date" id="dTo" aria-label="bis">
+      </div>
     </div>
     <div class="group">
       <div class="label">Stadt</div>
       <div class="chips" id="cities"></div>
+    </div>
+    <div class="group">
+      <div class="label">Typ</div>
+      <div class="chips" id="kinds"></div>
     </div>
     <div class="group" id="genreGroup" hidden>
       <div class="label">Genre</div>
@@ -210,8 +232,6 @@ details.past[open] summary .dash-h::before{content:"▾ "}
     <div class="group" id="mineGroup" hidden>
       <div class="label">Meine Konzerte</div>
       <div class="chips" id="mine"></div>
-      <label class="toggle" style="margin-top:10px"><input type="checkbox" class="share-toggle"> Markierungen teilen</label>
-      <div class="hint">Andere Angemeldete sehen, wohin du gehst – und du siehst, wohin sie gehen (nur wer auch teilt).</div>
     </div>
     <div class="group">
       <label class="toggle"><input type="checkbox" id="onlyNew"> Nur neu angekündigt</label>
@@ -220,6 +240,15 @@ details.past[open] summary .dash-h::before{content:"▾ "}
       <div class="label" style="display:flex;justify-content:space-between">Locations
         <span><button class="linkish" id="allV">alle</button> · <button class="linkish" id="noneV">keine</button></span></div>
       <div id="venues"></div>
+    </div>
+    <div class="group">
+      <div class="label">Einstellungen</div>
+      <div class="seg sm" id="themeSeg"><button data-theme-k="system">System</button><button data-theme-k="light">Hell</button><button data-theme-k="dark">Dunkel</button></div>
+      <div class="swatches" id="accents"></div>
+      <div id="shareBox" hidden style="margin-top:14px">
+        <label class="toggle"><input type="checkbox" class="share-toggle"> Markierungen teilen</label>
+        <div class="hint">Andere Angemeldete sehen, wohin du gehst – und du siehst, wohin sie gehen (nur wer auch teilt).</div>
+      </div>
     </div>
   </aside>
 
@@ -256,12 +285,14 @@ const state = {
   q: "", range: store.get("range", "all"), city: store.get("city", ""), onlyNew: false,
   hidden: new Set(store.get("hidden", [])), view: store.get("view", "list"), cal: new Date(),
   genres: new Set(store.get("genres", [])), pops: new Set(store.get("pops", [])), sort: store.get("sort", "date"),
-  mine: store.get("mine", "")
+  mine: store.get("mine", ""), kinds: new Set(store.get("kinds", [])),
+  from: store.get("from", ""), to: store.get("to", ""), open: new Set(store.get("openCities", []))
 };
 state.cal.setDate(1);
 if (location.hash === "#meine") state.view = "mine";
 
-const RANGES = [["all","Alle"],["week","7 Tage"],["month","30 Tage"],["weekend","Wochenende"]];
+const RANGES = [["all","Alle"],["week","7 Tage"],["month","30 Tage"],["weekend","Wochenende"],["custom","Von – bis"]];
+const KINDS = ["Konzert", "Party", "Andere"];
 const POP_LEVELS = [["lokal","unter 1000 Fans"],["Szene","1000 – 20 000 Fans"],["bekannt","20 000 – 300 000 Fans"],["Star","über 300 000 Fans"]];
 const x = e => e.extra || {};
 const MARKS = [["interested","☆ Interessiert"],["going","✓ Gehe hin"]];
@@ -279,6 +310,7 @@ function rangeBounds() {
   const t = new Date(); t.setHours(0,0,0,0);
   if (state.range === "week") return [t, new Date(+t + 7*864e5)];
   if (state.range === "month") return [t, new Date(+t + 30*864e5)];
+  if (state.range === "custom") return [state.from ? parse(state.from) : t, state.to ? parse(state.to) : null];
   if (state.range === "weekend") {
     const dow = t.getDay();
     const start = new Date(t);
@@ -302,6 +334,7 @@ function visible() {
       if (end < a) return false;
       if (b && d > b) return false;
     }
+    if (state.kinds.size && !state.kinds.has(e.kind)) return false;
     if (state.genres.size && !(x(e).genres || []).some(g => state.genres.has(g))) return false;
     if (state.pops.size && !state.pops.has(x(e).popularity_label)) return false;
     if (isMember() && state.mine) {
@@ -331,6 +364,13 @@ function ago(ts) {
 
 function renderSidebar() {
   $("#range").innerHTML = RANGES.map(([k,l]) => `<button class="chip ${state.range===k?"on":""}" data-k="${k}">${l}</button>`).join("");
+  $("#customRange").hidden = state.range !== "custom";
+  $("#dFrom").value = state.from; $("#dTo").value = state.to;
+  const kCount = new Map();
+  events.forEach(e => kCount.set(e.kind, (kCount.get(e.kind) || 0) + 1));
+  $("#kinds").innerHTML = [`<button class="chip ${state.kinds.size?"":"on"}" data-k="">Alle</button>`,
+    ...KINDS.filter(k => kCount.get(k)).map(k =>
+      `<button class="chip ${state.kinds.has(k)?"on":""}" data-k="${k}">${k}<small>${kCount.get(k)}</small></button>`)].join("");
   const cities = [...new Set(venues.map(v => v.city).filter(Boolean))].sort();
   $("#cities").innerHTML = [["","Alle"], ...cities.map(c => [c,c])]
     .map(([k,l]) => `<button class="chip ${state.city===k?"on":""}" data-k="${esc(k)}">${esc(l)}</button>`).join("");
@@ -347,16 +387,34 @@ function renderSidebar() {
   document.querySelectorAll(".share-toggle").forEach(c => c.checked = marks.share);
   $("#pops").innerHTML = [`<button class="chip ${state.pops.size?"":"on"}" data-k="">Alle</button>`,
     ...POP_LEVELS.map(([k, tip]) => `<button class="chip ${state.pops.has(k)?"on":""}" data-k="${k}" title="${tip}">${k}</button>`)].join("");
-  $("#venues").innerHTML = venues.map(v => {
-    const run = v.run;
-    const cls = !run ? "none" : run.last_error ? "err" : "";
-    const tip = !run ? "noch nicht geprüft" : run.last_error ? `Fehler: ${run.last_error}` : `geprüft ${ago(run.last_run)}`;
-    return `<label class="venue" title="${esc(tip)}">
-      <input type="checkbox" data-v="${esc(v.id)}" ${state.hidden.has(v.id)?"":"checked"}>
-      <span class="dot ${cls}" style="${cls?"":"background:"+venueColor(v.id)}"></span>
-      <span>${esc(v.name)}<small>${esc(v.city)}${run && run.last_error ? " · ⚠ Fehler" : ""}</small></span>
-      <span class="n">${v.upcoming}</span></label>`;
+  const byCity = new Map();
+  venues.forEach(v => (byCity.get(v.city || "–") || byCity.set(v.city || "–", []).get(v.city || "–")).push(v));
+  $("#venues").innerHTML = [...byCity.keys()].sort().map(city => {
+    const vs = byCity.get(city), on = vs.filter(v => !state.hidden.has(v.id)).length, open = state.open.has(city);
+    const err = vs.some(v => v.run && v.run.last_error);
+    return `<div class="city-h"><button class="caret" data-open="${esc(city)}" aria-label="aufklappen">${open ? "▾" : "▸"}</button>
+      <input type="checkbox" data-city="${esc(city)}" ${on ? "checked" : ""} ${on && on < vs.length ? "data-partial" : ""}>
+      <span class="nm" data-open="${esc(city)}">${esc(city)}${err ? " ⚠" : ""}</span>
+      <span class="n">${vs.reduce((n, v) => n + v.upcoming, 0)}</span></div>
+      <div class="city-v" ${open ? "" : "hidden"}>${vs.map(venueRow).join("")}</div>`;
   }).join("");
+  document.querySelectorAll("[data-partial]").forEach(c => c.indeterminate = true);
+  // Einstellungen
+  document.querySelectorAll("#themeSeg button").forEach(b => b.classList.toggle("on", b.dataset.themeK === KA_THEME.theme()));
+  $("#accents").innerHTML = KA_THEME.ACCENTS.map(([k, name, light]) =>
+    `<button class="swatch ${KA_THEME.accent()===k?"on":""}" data-accent="${k}" title="${name}" style="background:${light}"></button>`).join("");
+  $("#shareBox").hidden = !isMember();
+}
+
+function venueRow(v) {
+  const run = v.run;
+  const cls = !run ? "none" : run.last_error ? "err" : "";
+  const tip = !run ? "noch nicht geprüft" : run.last_error ? `Fehler: ${run.last_error}` : `geprüft ${ago(run.last_run)}`;
+  return `<label class="venue" title="${esc(tip)}">
+    <input type="checkbox" data-v="${esc(v.id)}" ${state.hidden.has(v.id)?"":"checked"}>
+    <span class="dot ${cls}" style="${cls?"":"background:"+venueColor(v.id)}"></span>
+    <span>${esc(v.name)}${run && run.last_error ? "<small>⚠ Fehler</small>" : ""}</span>
+    <span class="n">${v.upcoming}</span></label>`;
 }
 
 function popBadge(e) {
@@ -532,6 +590,7 @@ function render() {
   if (state.q) p.set("q", state.q);
   state.genres.forEach(g => p.append("genre", g));
   state.pops.forEach(k => p.append("pop", k));
+  state.kinds.forEach(k => p.append("kind", k));
   // Alle Events mit diesen Filtern. Angemeldete: persönlicher Token-Link (geht auch bei auth.guests: false)
   if (isMember()) p.set("all", "1");
   $("#icsLink").href = (isMember() ? myIcal() : "calendar.ics") + (p.toString() ? "?" + p : "");
@@ -570,10 +629,21 @@ $("#q").addEventListener("input", e => { state.q = e.target.value; render(); });
 $("#range").addEventListener("click", e => { const k = e.target.dataset.k; if (k === undefined) return; state.range = k; store.set("range", k); renderSidebar(); render(); });
 $("#cities").addEventListener("click", e => { const k = e.target.dataset.k; if (k === undefined) return; state.city = k; store.set("city", k); renderSidebar(); render(); });
 $("#onlyNew").addEventListener("change", e => { state.onlyNew = e.target.checked; render(); });
+$("#venues").addEventListener("click", e => {
+  const c = e.target.closest("[data-open]"); if (!c) return;
+  const city = c.dataset.open;
+  state.open.has(city) ? state.open.delete(city) : state.open.add(city);
+  store.set("openCities", [...state.open]); renderSidebar();
+});
 $("#venues").addEventListener("change", e => {
+  const city = e.target.dataset.city;
+  if (city !== undefined) {                 // ganze Stadt an/aus
+    venues.filter(v => (v.city || "–") === city).forEach(v => e.target.checked ? state.hidden.delete(v.id) : state.hidden.add(v.id));
+    store.set("hidden", [...state.hidden]); renderSidebar(); render(); return;
+  }
   const id = e.target.dataset.v; if (!id) return;
   e.target.checked ? state.hidden.delete(id) : state.hidden.add(id);
-  store.set("hidden", [...state.hidden]); render();
+  store.set("hidden", [...state.hidden]); renderSidebar(); render();   // Stadt-Haken (halb/ganz) nachführen
 });
 $("#allV").onclick = () => { state.hidden.clear(); store.set("hidden", []); renderSidebar(); render(); };
 $("#noneV").onclick = () => { venues.forEach(v => state.hidden.add(v.id)); store.set("hidden", [...state.hidden]); renderSidebar(); render(); };
@@ -588,6 +658,12 @@ function toggleChip(set, key, k) {          // «Alle» leert die Auswahl, sonst
   if (k === "") set.clear(); else set.has(k) ? set.delete(k) : set.add(k);
   store.set(key, [...set]); renderSidebar(); render();
 }
+$("#kinds").addEventListener("click", e => { const b = e.target.closest("[data-k]"); if (b) toggleChip(state.kinds, "kinds", b.dataset.k); });
+["from", "to"].forEach(k => $(k === "from" ? "#dFrom" : "#dTo").addEventListener("change", e => {
+  state[k] = e.target.value; store.set(k, state[k]); render();
+}));
+$("#themeSeg").addEventListener("click", e => { const b = e.target.closest("[data-theme-k]"); if (b) { KA_THEME.setTheme(b.dataset.themeK); renderSidebar(); } });
+$("#accents").addEventListener("click", e => { const b = e.target.closest("[data-accent]"); if (b) { KA_THEME.setAccent(b.dataset.accent); renderSidebar(); } });
 $("#genres").addEventListener("click", e => { const b = e.target.closest("[data-k]"); if (b) toggleChip(state.genres, "genres", b.dataset.k); });
 $("#pops").addEventListener("click", e => { const b = e.target.closest("[data-k]"); if (b) toggleChip(state.pops, "pops", b.dataset.k); });
 $("#mine").addEventListener("click", e => { const b = e.target.closest("[data-k]"); if (!b) return; state.mine = b.dataset.k; store.set("mine", state.mine); renderSidebar(); render(); });

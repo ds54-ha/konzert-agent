@@ -23,6 +23,15 @@ Testen mit:
 docker compose exec konzert-agent python -m konzert_agent test-notify
 ```
 
+## Oberfläche
+
+Filter in der Seitenleiste: Suche, Zeitraum (auch **Von – bis**), Stadt, **Typ** (Konzert / Party / Andere),
+Genre, Popularität und Locations (nach Stadt gruppiert, aufklappbar). Den Typ liefert keine Quelle einheitlich:
+er wird aus den Tags der Location (z.B. PETZI «Party», «Performance») bzw. eindeutigen Titelwörtern abgeleitet
+(`konzert_agent/kinds.py`). Unter **Einstellungen**: Hell / Dunkel / System und die Akzentfarbe – pro Gerät
+im Browser gespeichert. Locations, Suche, Typ, Genre und Popularität wirken auch auf den iCal-Link (der
+Zeitraum nicht – ein Abo soll weiterlaufen).
+
 ## Login
 
 Ohne Anmeldung kann man den Kalender **nur ansehen** (inkl. allgemeinem iCal-Abo). Mit dem Knopf

@@ -11,7 +11,7 @@ from urllib.parse import unquote, urlencode
 from konzert_agent.__main__ import main
 from konzert_agent.agent import Agent
 from konzert_agent.auth import LoginLimiter, hash_password, new_token, verify_password
-from konzert_agent.config import ArtistSettings, AuthSettings, Config, Settings
+from konzert_agent.config import ArtistSettings, AuthSettings, Config, Settings, VenueConfig
 from konzert_agent.models import Event
 from konzert_agent.web.app import create_app
 
@@ -121,6 +121,7 @@ class WebAuthTests(unittest.TestCase):
         self.assertEqual(call(app, "GET", "/calendar.ics")["status"], 303)
         self.assertEqual(call(app, "GET", "/static/index.html")["status"], 303)
         self.assertEqual(call(app, "GET", "/health")["status"], 200)
+        self.assertEqual(call(app, "GET", "/static/theme.js")["status"], 200)      # Farben auf der Login-Seite
         login = call(app, "GET", "/login")["text"]
         self.assertIn("Benutzername", login)
         self.assertNotIn("ohne Anmeldung", login)
@@ -262,6 +263,16 @@ class MarkTests(unittest.TestCase):
         self.assertEqual(ben["others"], {"kiff:2": [{"user": "Anna", "status": "going"}]})       # ohne Ticket
         self.req("PUT", "/api/settings", self.c_anna, {"share_marks": False})
         self.assertEqual(self.req("GET", "/api/marks", self.c_ben)["json"]["others"], {})
+
+    def test_event_kind_in_api_and_ical(self):
+        self.store.upsert([Event("kiff", "p", "Halloween Party", date.today() + timedelta(days=4), tags=["Party"])])
+        self.agent.config.venues.append(VenueConfig(id="kiff", name="KiFF", city="Aarau", type="petzi"))
+        app = create_app(self.agent)
+        kinds = {e["title"]: e["kind"] for e in json.loads(call(app, "GET", "/api/events")["text"])}
+        self.assertEqual(kinds, {"Band A": "Konzert", "Halloween Party": "Party", "Band B": "Konzert"})
+        cal = call(app, "GET", "/calendar.ics?kind=Party")["text"]
+        self.assertIn("Halloween Party", cal)
+        self.assertNotIn("Band A", cal)
 
     def test_my_events_dashboard(self):
         self.assertEqual(self.req("GET", "/api/my-events")["status"], 401)                       # Gast

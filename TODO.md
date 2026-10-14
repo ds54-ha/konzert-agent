@@ -29,10 +29,6 @@
   - Zugang von aussen: eigene Domain über Cloudflare → nginx-Reverse-Proxy (noch nicht aktiviert)
   - Gegenseitig sehen, wer hingeht: pro Benutzer ein-/ausschaltbar (Opt-in)
 
-## Userfunktionen
-- [ ] 8. Optional: Bands folgen → Telegram-Meldung bei neuer Show
-- [ ] 12. individulle Telegramconfiguration
-
 ## Weitere Locations
 
 - [x] 6. Neue Scraper: Dynamo (Zürich), X-tra (Zürich), Nordportal (Baden),
@@ -41,14 +37,27 @@
   - X-tra erlaubt Bots inzwischen (robots.txt «Allow: /»)
   - [ ] Dynamo zeigt nur ~6 Wochen; die Drupal-JSON:API (dynamo.nodehive.app) hätte alles, enthält aber
         private Kontaktdaten der Veranstalter → bewusst nicht verwendet
-## Layout
+## Layout & Bedienung
 
-- [ ] 7. Optimierungen am UX
-  - [ ] Zusätzlicher Kalenderselector um individuelle Zeiträume (nicht nur wochenende, 7, 30 Tage etc) zu wählen
-  - [ ] Locations als zusammenklappbar per Stadt
-  - [ ] persönliche Einstellungen am Ende der Sidebar oder auf dem Userdashboard
-- [ ] 9. Optimierungen am Layout
-  - [ ] Option zur Wahl der Akzentfarbe
-  - [ ] Option für Dark-/Lightmode
+- [x] 7. Optimierungen am UX (v1.10.0)
+  - [x] Zusätzlicher Kalenderselector um individuelle Zeiträume (nicht nur Wochenende, 7, 30 Tage etc.) zu wählen
+  - [x] Locations als zusammenklappbar per Stadt (Haken pro Stadt, ⚠ bei Fehlern)
+  - [x] Persönliche Einstellungen am Ende der Sidebar (Teilen zusätzlich im Dashboard)
+  - [x] Filter nach Event-Typ: Konzert / Party / Andere – aus Tags der Location, sonst eindeutigen Titelwörtern
+        (`konzert_agent/kinds.py`); auch im iCal-Abo (`?kind=…`)
+- [x] 8. Optimierungen am Layout (v1.10.0)
+  - [x] Option zur Wahl der Akzentfarbe (6 Farben, je hell/dunkel abgestimmt)
+  - [x] Option für Dark-/Lightmode (System / Hell / Dunkel) – pro Gerät gespeichert, auch für Gäste
 
-Reihenfolge (2026-10-14): zuerst 6 (erledigt), dann 4.
+## Userfunktionen
+
+- [ ] 9. Individuelle Telegram-Konfiguration pro Benutzer (Voraussetzung für 10)
+- [ ] 10. Bands folgen → Telegram-Meldung bei neuer Show
+
+## Später
+
+- [ ] 11. Support-Bands in der Liste anzeigen, unterhalb des Hauptacts
+- [ ] 12. Archiv: vergangene Events anschauen (Events werden nicht gelöscht, die DB füllt sich ab 2026-10-14)
+
+Reihenfolge (2026-10-14): zuerst 6 (erledigt), dann 4 (erledigt).
+Reihenfolge (2026-10-15): 7 + 8 zusammen, dann 9 → 10, danach 11 und 12.

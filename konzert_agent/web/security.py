@@ -24,7 +24,7 @@ from ..config import AuthSettings
 from ..store import Store
 
 COOKIE = "ka_session"
-PUBLIC = re.compile(r"^/(?:login|logout|health|ical/[^/]+\.ics)$")
+PUBLIC = re.compile(r"^/(?:login|logout|health|ical/[^/]+\.ics|static/theme\.js)$")   # theme.js: Login-Seite
 # Nur-Lesen für Gäste (bewusst eine Positivliste: neue Routen sind automatisch nur für Angemeldete)
 GUEST = re.compile(r"^/(?:|calendar\.ics|api/(?:me|events|venues)|static/.+)$")
 SECURITY_HEADERS = [
