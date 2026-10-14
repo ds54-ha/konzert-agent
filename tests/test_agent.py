@@ -4,7 +4,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from konzert_agent.agent import Agent, passes_filters
-from konzert_agent.config import Config, Settings, VenueConfig
+from konzert_agent.config import ArtistSettings, Config, Settings, VenueConfig
 from konzert_agent.models import Event
 from konzert_agent.notifiers import TelegramNotifier
 from konzert_agent.sources import create_source
@@ -86,6 +86,20 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(evs[0].time, "19:30")
         self.assertEqual(evs[0].date, date(2026, 10, 15))
 
+    def test_hallenstadion_ajax_pages(self):
+        first = (FIX / "hallenstadion.html").read_text()
+        page2 = ('<div data-paged="1" data-max_pages="2"><a href="https://hallenstadion.ch/events/placebo'
+                 '?availability_id=43066"><h3>Placebo</h3> <span>04 Dec 2026</span> <span>20:00 Uhr</span></a></div>')
+        ajax = ("https://hallenstadion.ch/wp-admin/admin-ajax.php?action=events_filter&paged=2&filter_by_genre="
+                "&filter_by_events_type=&filter_by_date=&from_date=&to_date=")
+        fetcher = FakeFetcher({"https://hallenstadion.ch/events/": first, ajax: page2})
+        s = create_source(VenueConfig(id="v", name="V", type="hallenstadion",
+                                      url="https://hallenstadion.ch/events/"), fetcher)
+        evs = s.fetch()
+        self.assertEqual(len(evs), 6)
+        self.assertEqual(fetcher.calls, ["https://hallenstadion.ch/events/", ajax])
+        self.assertEqual(evs[-1].title, "Placebo")
+
     def test_jsonld(self):
         html = """<script type="application/ld+json">{"@context":"https://schema.org","@graph":[
           {"@type":"MusicEvent","name":"Band X","startDate":"2026-11-20T20:30:00+01:00","url":"/e/1",
@@ -134,7 +148,7 @@ class AgentTests(unittest.TestCase):
         cfg = Config(settings=Settings(database=f"{self.tmp.name}/t.db"),
                      venues=[VenueConfig(id="x", name="Club X", city="Baden", type="petzi",
                                          options={"organiser": 1}, exclude=["Comedy"])],
-                     notifiers=[])
+                     notifiers=[], artists=ArtistSettings(enabled=False))
         self.agent = Agent(cfg, fetcher=self.fetcher)
         self.sent = []
         outer = self

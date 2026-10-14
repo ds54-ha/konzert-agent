@@ -11,6 +11,7 @@ from starlette.responses import FileResponse, JSONResponse, Response
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
+from .. import __version__
 from ..agent import Agent
 
 STATIC = Path(__file__).parent / "static"
@@ -57,7 +58,7 @@ def create_app(agent: Agent) -> Starlette:
         for vid, m in venue_meta.items():
             out.append({**m, "upcoming": counts.get(vid, 0), "run": runs.get(vid)})
         return JSONResponse({"venues": out, "interval_hours": cfg.settings.interval_hours,
-                             "new_badge_days": cfg.settings.new_badge_days})
+                             "new_badge_days": cfg.settings.new_badge_days, "version": __version__})
 
     async def api_run(req):
         threading.Thread(target=agent.run, daemon=True).start()
@@ -96,7 +97,7 @@ def create_app(agent: Agent) -> Starlette:
         return Response("\r\n".join(folded) + "\r\n", media_type="text/calendar; charset=utf-8")
 
     async def health(req):
-        return JSONResponse({"ok": True})
+        return JSONResponse({"ok": True, "version": __version__})
 
     return Starlette(routes=[
         Route("/", index),

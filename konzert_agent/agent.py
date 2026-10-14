@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
+from .artists import ArtistEnricher, ArtistLookup
 from .config import Config, VenueConfig
 from .fetch import Fetcher
 from .models import Event
@@ -29,12 +30,17 @@ def load_plugins(paths: list[str]):
 
 
 def passes_filters(ev: Event, cfg: VenueConfig) -> bool:
-    hay = " ".join([ev.title, *ev.tags])
+    hay = " ".join([ev.title, *ev.tags, *ev.extra.get("genres", []), *ev.extra.get("styles", [])])
     if cfg.include and not any(re.search(p, hay, re.I) for p in cfg.include):
         return False
     if cfg.exclude and any(re.search(p, hay, re.I) for p in cfg.exclude):
         return False
     return True
+
+
+def event_from_row(d: dict) -> Event:
+    return Event(venue_id=d["venue_id"], native_id=d["native_id"], title=d["title"], url=d.get("url") or "",
+                 date=date.fromisoformat(d["date"]), tags=d["tags"], extra=dict(d.get("extra") or {}))
 
 
 @dataclass
@@ -54,6 +60,29 @@ class Agent:
         names = {v.id: v.name for v in config.venues}
         self.notifiers = create_notifiers(config.notifiers, names, s.base_url)
         self._run_lock = threading.Lock()
+        a = config.artists
+        self.artists = ArtistEnricher(
+            ArtistLookup(s.user_agent, s.request_delay, cache=self.store, refresh_days=a.refresh_days,
+                         overrides=a.overrides), a.titles) if a.enabled else None
+
+    def enrich_artists(self, ev: Event):
+        if not self.artists:
+            return
+        try:
+            self.artists.apply(ev)
+        except Exception:  # noqa: BLE001 – Band-Infos sind Zusatz, der Lauf geht weiter
+            log.exception("Band-Infos für %r nicht geladen", ev.title)
+
+    def backfill_artists(self, limit: int | None = None, venues: list[str] | None = None, redo: bool = False) -> int:
+        """Band-Infos für bestehende Events nachholen (redo=True: alle neu berechnen, z.B. nach Korrekturen)."""
+        if not self.artists:
+            return 0
+        rows = self.store.events(start=date.today(), venues=venues, without_artists=not redo)
+        for d in rows[:limit] if limit else rows:
+            ev = event_from_row(d)
+            self.enrich_artists(ev)
+            self.store.update_extra(d["uid"], ev.extra)
+        return len(rows[:limit] if limit else rows)
 
     def run_venue(self, cfg: VenueConfig, result: RunResult):
         src = create_source(cfg, self.fetcher)
@@ -74,9 +103,10 @@ class Agent:
         for ev in new:
             try:
                 src.enrich(ev)
-                self.store.update_details(ev)
             except Exception as e:  # noqa: BLE001
                 log.warning("Details für %s nicht geladen: %s", ev.url, e)
+            self.enrich_artists(ev)            # nach enrich(): PETZI-Tags dienen als Genre-Rückfall
+            self.store.update_details(ev)
         new = [e for e in new if passes_filters(e, cfg) and not e.cancelled]
         cancelled = [e for e in cancelled if passes_filters(e, cfg)]
 
@@ -100,6 +130,10 @@ class Agent:
                 if not cfg.enabled or (only and cfg.id not in only):
                     continue
                 self.run_venue(cfg, result)
+            if not only:
+                n = self.backfill_artists(self.config.artists.backfill_per_run)
+                if n:
+                    log.info("Band-Infos für %d bestehende Events nachgeholt", n)
             if notify and (result.new or result.cancelled):
                 for n in self.notifiers:
                     try:
@@ -119,8 +153,6 @@ class Agent:
             cfg = cfgs.get(d["venue_id"])
             if cfg is None:
                 continue
-            ev = Event(venue_id=d["venue_id"], native_id=d["native_id"], title=d["title"],
-                       date=date.fromisoformat(d["date"]), tags=d["tags"])
-            if passes_filters(ev, cfg):
+            if passes_filters(event_from_row(d), cfg):
                 out.append(d)
         return out

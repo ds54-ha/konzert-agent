@@ -23,6 +23,27 @@ notifiers:
     enabled: false
     url: http://homeassistant.local:8123/api/webhook/neue_konzerte
 
+# Band-Infos (Genre, Stil, Popularität) über MusicBrainz + Deezer
+# Prüfen: python -m konzert_agent artists <location>   Nach Korrekturen: … artists --save
+artists:
+  enabled: true
+  refresh_days: 30          # Band-Infos so lange wiederverwenden, danach neu nachschlagen
+  backfill_per_run: 40      # pro Lauf so viele bestehende Events ohne Band-Infos nachholen
+
+  # Falsche Zuordnungen korrigieren – Schlüssel ist der Bandname aus dem Titel (Gross/klein egal):
+  #   none                       -> nie zuordnen
+  #   {deezer: <ID>}             -> feste Deezer-ID (deezer.com/artist/<ID>), liefert die Fans
+  #   {mbid: <MusicBrainz-ID>}   -> fester MusicBrainz-Eintrag (musicbrainz.org/artist/<ID>), liefert Genres
+  #   {genres: [indie rock]}     -> Genres/Stile von Hand (z.B. für lokale Bands ohne Einträge)
+  overrides: {}
+  #  Sports: none
+  #  Omisdus: {genres: [indie pop]}
+
+  # Titel, aus denen falsche Bandnamen gelesen werden: Regex auf den Titel -> Bands ([] = keine)
+  titles:
+    "^Goth Night": []
+  #  "^Ska-Night": [Kalles Kaviar, Canastron]
+
 # Eigene Quellen-Dateien (Python), siehe README «Eigene Quelle schreiben»
 plugins: []
 
@@ -87,6 +108,28 @@ venues:
     url: https://hallenstadion.ch/events/
     exclude: ["Swiss Cup", "Super10Kampf", "Eishockey", "Red Bull", "Cavalluna", "Holiday on Ice",
               "Felix Lobrecht", "Comedy", "Sport"]
+
+  # --- Luzern ---
+  - id: schuur
+    name: Konzerthaus Schüür
+    city: Luzern
+    type: css                       # PETZI-Mitglied, verkauft aber über seetickets → eigene Seite
+    url: https://www.schuur.ch/programm
+    options:
+      item: "section.viz-event-list-box"
+      title: ".viz-event-name"
+      date: "meta[itemprop=startDate]"
+      date_attr: content
+      time: ".viz-event-date"
+      link: "a.viz-event-box-details-link"
+      tags: ".viz-event-genre"
+
+  # --- Solothurn ---
+  - id: kofmehl
+    name: Kulturfabrik Kofmehl
+    city: Solothurn
+    type: petzi
+    options: {organiser: 37}
 
   # --- Vorlagen für weitere Locations (enabled: false) ---
   - id: beispiel_jsonld

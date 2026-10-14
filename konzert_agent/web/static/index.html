@@ -339,7 +339,7 @@ async function load() {
   const lastRun = venues.map(x => x.run && x.run.last_run).filter(Boolean).sort().pop();
   const errs = venues.filter(x => x.run && x.run.last_error).length;
   $("#status").textContent = `${events.length} kommende Events · ${venues.length} Locations · zuletzt geprüft ${ago(lastRun)}`
-    + (errs ? ` · ${errs} mit Fehler` : "");
+    + (errs ? ` · ${errs} mit Fehler` : "") + ` · v${v.version}`;
   renderSidebar(); render();
 }
 

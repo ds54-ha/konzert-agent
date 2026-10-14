@@ -36,6 +36,11 @@ CREATE TABLE IF NOT EXISTS runs (
     last_error TEXT,
     found     INTEGER DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS artists (
+    key        TEXT PRIMARY KEY,   -- normalisierter Name | Länder-Hinweis
+    data       TEXT NOT NULL,      -- ArtistInfo als JSON
+    fetched_at TEXT NOT NULL
+);
 """
 
 
@@ -90,6 +95,23 @@ class Store:
             self.db.execute("UPDATE events SET tags=?, time=COALESCE(?, time), extra=? WHERE uid=?",
                             (json.dumps(ev.tags), ev.time, json.dumps(ev.extra), ev.uid))
 
+    def update_extra(self, uid: str, extra: dict):
+        with self.lock, self.db:
+            self.db.execute("UPDATE events SET extra=? WHERE uid=?", (json.dumps(extra), uid))
+
+    def get_artist(self, key: str, max_age_days: int | None = None) -> dict | None:
+        sql, args = "SELECT data FROM artists WHERE key=?", [key]
+        if max_age_days:
+            sql += " AND fetched_at >= ?"; args.append((datetime.now() - timedelta(days=max_age_days)).isoformat())
+        with self.lock:
+            row = self.db.execute(sql, args).fetchone()
+        return json.loads(row["data"]) if row else None
+
+    def put_artist(self, key: str, data: dict):
+        with self.lock, self.db:
+            self.db.execute("INSERT INTO artists (key, data, fetched_at) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE"
+                            " SET data=excluded.data, fetched_at=excluded.fetched_at", (key, json.dumps(data), _now()))
+
     def mark_notified(self, uids: list[str]):
         with self.lock, self.db:
             self.db.executemany("UPDATE events SET notified=1 WHERE uid=?", [(u,) for u in uids])
@@ -106,7 +128,7 @@ class Store:
     # ------------------------------------------------------------ Lesen
 
     def events(self, start: date | None = None, end: date | None = None, venues: list[str] | None = None,
-               q: str | None = None, new_days: int | None = None) -> list[dict]:
+               q: str | None = None, new_days: int | None = None, without_artists: bool = False) -> list[dict]:
         sql, args = "SELECT * FROM events WHERE 1=1", []
         if start:
             sql += " AND COALESCE(end_date, date) >= ?"; args.append(start.isoformat())
@@ -115,7 +137,9 @@ class Store:
         if venues:
             sql += f" AND venue_id IN ({','.join('?' * len(venues))})"; args += venues
         if q:
-            sql += " AND (title LIKE ? OR tags LIKE ?)"; args += [f"%{q}%", f"%{q}%"]
+            sql += " AND (title LIKE ? OR tags LIKE ? OR extra LIKE ?)"; args += [f"%{q}%"] * 3
+        if without_artists:
+            sql += " AND extra NOT LIKE '%\"artists\":%'"
         if new_days:
             sql += " AND first_seen >= ?"; args.append((datetime.now() - timedelta(days=new_days)).isoformat())
         sql += " ORDER BY date, time, title"

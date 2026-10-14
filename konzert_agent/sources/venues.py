@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import re
 from datetime import date
-from urllib.parse import urljoin, urlsplit, parse_qs
+from urllib.parse import urljoin, urlsplit, parse_qs, urlencode
 
 from bs4 import BeautifulSoup
 
@@ -44,9 +44,28 @@ class ExilSource(Source):
 
 @register("hallenstadion")
 class HallenstadionSource(Source):
-    """hallenstadion.ch/events/ – Einträge: 'Titel 15 Oct 2026 … 19:30 Uhr …'."""
+    """hallenstadion.ch/events/ – Einträge: 'Titel 15 Oct 2026 … 19:30 Uhr …'.
+
+    Die Seite zeigt nur 12 Events; der Rest kommt per «mehr laden» über admin-ajax.php
+    (`/events/page/N/` liefert immer wieder Seite 1). Anzahl Seiten steht in `data-max_pages`.
+    Option `max_pages` begrenzt die Anzahl Abrufe (Standard 20)."""
 
     _RE = re.compile(r"^(?P<title>.+?)\s+(?P<d>\d{1,2})\s+(?P<m>[A-Za-zäÄ]{3,})\.?\s+(?P<y>\d{4})(?P<rest>.*)$")
+    _MAX_PAGES = re.compile(r'data-max_pages="(\d+)"')
+    _FILTERS = ("filter_by_genre", "filter_by_events_type", "filter_by_date", "from_date", "to_date")
+
+    def fetch(self) -> list[Event]:
+        base = self.cfg.url or "https://hallenstadion.ch/events/"
+        html = self.fetcher.get(base)
+        events = {e.native_id: e for e in self.parse(html)}
+        m = self._MAX_PAGES.search(html)
+        pages = min(int(m.group(1)), int(self.opt("max_pages", 20))) if m else 1
+        ajax = urljoin(base, "/wp-admin/admin-ajax.php")
+        for page in range(2, pages + 1):
+            params = {"action": "events_filter", "paged": page, **dict.fromkeys(self._FILTERS, "")}
+            for ev in self.parse(self.fetcher.get(f"{ajax}?{urlencode(params)}")):
+                events.setdefault(ev.native_id, ev)
+        return list(events.values())
 
     def parse(self, html: str) -> list[Event]:
         soup = BeautifulSoup(html, "lxml")

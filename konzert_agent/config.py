@@ -48,11 +48,21 @@ class Settings:
 
 
 @dataclass
+class ArtistSettings:
+    enabled: bool = True
+    refresh_days: int = 30          # gespeicherte Band-Infos so lange wiederverwenden
+    backfill_per_run: int = 40      # pro Lauf so viele bestehende Events ohne Band-Infos nachholen
+    overrides: dict = field(default_factory=dict)   # Name -> none | {mbid, deezer, genres}
+    titles: dict = field(default_factory=dict)      # Titel-Regex -> [Bands] ([] = keine Bands)
+
+
+@dataclass
 class Config:
     settings: Settings
     venues: list[VenueConfig]
     notifiers: list[dict]
     plugins: list[str] = field(default_factory=list)
+    artists: ArtistSettings = field(default_factory=ArtistSettings)
 
     def venue(self, venue_id: str) -> VenueConfig | None:
         return next((v for v in self.venues if v.id == venue_id), None)
@@ -71,4 +81,4 @@ def load_config(path: str | Path) -> Config:
         seen.add(vc.id)
         venues.append(vc)
     return Config(settings=settings, venues=venues, notifiers=raw.get("notifiers") or [],
-                  plugins=raw.get("plugins") or [])
+                  plugins=raw.get("plugins") or [], artists=ArtistSettings(**(raw.get("artists") or {})))
