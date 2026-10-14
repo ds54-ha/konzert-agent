@@ -28,7 +28,10 @@
             Link im Tab «Meine» erneuerbar (v1.9.0)
   - Zugang von aussen: eigene Domain über Cloudflare → nginx-Reverse-Proxy (noch nicht aktiviert)
   - Gegenseitig sehen, wer hingeht: pro Benutzer ein-/ausschaltbar (Opt-in)
-- [ ] 5. Optional: Bands folgen → Telegram-Meldung bei neuer Show
+
+## Userfunktionen
+- [ ] 8. Optional: Bands folgen → Telegram-Meldung bei neuer Show
+- [ ] 12. individulle Telegramconfiguration
 
 ## Weitere Locations
 
@@ -38,5 +41,14 @@
   - X-tra erlaubt Bots inzwischen (robots.txt «Allow: /»)
   - [ ] Dynamo zeigt nur ~6 Wochen; die Drupal-JSON:API (dynamo.nodehive.app) hätte alles, enthält aber
         private Kontaktdaten der Veranstalter → bewusst nicht verwendet
+## Layout
+
+- [ ] 7. Optimierungen am UX
+  - [ ] Zusätzlicher Kalenderselector um individuelle Zeiträume (nicht nur wochenende, 7, 30 Tage etc) zu wählen
+  - [ ] Locations als zusammenklappbar per Stadt
+  - [ ] persönliche Einstellungen am Ende der Sidebar oder auf dem Userdashboard
+- [ ] 9. Optimierungen am Layout
+  - [ ] Option zur Wahl der Akzentfarbe
+  - [ ] Option für Dark-/Lightmode
 
 Reihenfolge (2026-10-14): zuerst 6 (erledigt), dann 4.
