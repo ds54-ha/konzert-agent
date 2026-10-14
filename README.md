@@ -29,6 +29,11 @@ Ohne Anmeldung kann man den Kalender **nur ansehen** (inkl. allgemeinem iCal-Abo
 **Anmelden** kommen die Funktionen für Benutzer dazu – z.B. «Jetzt prüfen» (alle Locations neu einlesen)
 und der persönliche Kalender-Link. Soll die Seite ganz hinter dem Login sein: `auth.guests: false`.
 
+Angemeldet kann man Konzerte markieren: **☆ Interessiert** oder **✓ Gehe hin**, bei «Gehe hin» mit
+Ticket-Status (noch nicht / selbst gekauft / hat jemand anderes). Nochmals klicken entfernt die Markierung.
+Unter «Meine Konzerte» lässt sich danach filtern. Mit **Markierungen teilen** sehen andere, wohin man geht –
+gegenseitig: nur wer selbst teilt, sieht die anderen (Name und Status, nicht den Ticket-Status).
+
 Benutzer werden nur per Befehl angelegt (keine Registrierung):
 
 ```bash

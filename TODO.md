@@ -17,8 +17,10 @@
             `/api/run` nur mit Login; iCal-Abo über persönlichen Token-Link (v1.5.0)
   - [x] Gäste dürfen den Kalender ansehen (nur lesen), «Anmelden»-Knopf schaltet Funktionen frei;
         `auth.guests: false` = alles hinter Login (v1.6.0)
-  - [ ] 4b. Konzerte markieren pro Benutzer: «Interessiert» / «Gehe hin»
-    - [ ] Ticket-Status: «Ja, selbst gekauft» / «Ja, jemand anderes hat sie» / «Noch nicht»
+  - [x] 4b. Konzerte markieren pro Benutzer: «Interessiert» / «Gehe hin» (v1.7.0)
+    - [x] Ticket-Status: «Ja, selbst gekauft» / «Ja, jemand anderes hat sie» / «Noch nicht»
+    - [x] Teilen per Opt-in, gegenseitig (nur wer teilt, sieht andere); andere sehen Name + Status,
+          nicht den Ticket-Status. Filter «Meine Konzerte»: Markiert / Gehe hin / Ohne Ticket / Andere gehen
   - [ ] 4c. Eigene Unterseite pro Benutzer: Dashboard mit allen markierten Konzerten
             (anstehend, Tickets fehlen noch, vergangene)
   - [ ] 4d. Persönlicher iCal-Link mit den markierten Konzerten (Status im Titel/Beschreibung),

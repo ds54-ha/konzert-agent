@@ -2,14 +2,17 @@ import asyncio
 import io
 import tempfile
 import unittest
+import json
 from contextlib import redirect_stdout
+from datetime import date, timedelta
 from unittest import mock
-from urllib.parse import urlencode
+from urllib.parse import unquote, urlencode
 
 from konzert_agent.__main__ import main
 from konzert_agent.agent import Agent
 from konzert_agent.auth import LoginLimiter, hash_password, new_token, verify_password
 from konzert_agent.config import ArtistSettings, AuthSettings, Config, Settings
+from konzert_agent.models import Event
 from konzert_agent.web.app import create_app
 
 
@@ -17,7 +20,7 @@ def call(app, method, path, headers=None, body=b""):
     """Minimaler ASGI-Client (httpx ist im Image nicht installiert)."""
     path, _, qs = path.partition("?")
     hdrs = [(k.lower().encode(), v.encode()) for k, v in (headers or {}).items()]
-    scope = {"type": "http", "method": method, "path": path, "query_string": qs.encode(), "headers": hdrs,
+    scope = {"type": "http", "method": method, "path": unquote(path), "raw_path": path.encode(), "query_string": qs.encode(), "headers": hdrs,
              "scheme": "http", "server": ("test", 80), "client": ("10.0.0.1", 1234), "root_path": "",
              "http_version": "1.1"}
     out = {"status": None, "headers": [], "body": b""}
@@ -188,6 +191,86 @@ class WebAuthTests(unittest.TestCase):
     def test_no_users_hint(self):
         self.store.delete_user(self.uid)
         self.assertIn("user add", call(self.app, "GET", "/login")["text"])
+
+
+class MarkTests(unittest.TestCase):
+    """«Interessiert» / «Gehe hin» + Ticket, Teilen per Opt-in (gegenseitig)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        cfg = Config(settings=Settings(database=f"{self.tmp.name}/t.db"), venues=[], notifiers=[],
+                     artists=ArtistSettings(enabled=False), auth=AuthSettings())
+        self.agent = Agent(cfg)
+        self.store = self.agent.store
+        self.store.upsert([Event("kiff", "1/a", "Band A", date.today() + timedelta(days=3)),
+                           Event("kiff", "2", "Band B", date.today() + timedelta(days=5))])
+        self.anna = self.store.create_user("Anna", hash_password("passwort-anna"), new_token())
+        self.ben = self.store.create_user("Ben", hash_password("passwort-ben!"), new_token())
+        self.app = create_app(self.agent)
+        self.c_anna, self.c_ben = self.login("anna", "passwort-anna"), self.login("ben", "passwort-ben!")
+
+    def login(self, user, pw):
+        body = urlencode({"username": user, "password": pw}).encode()
+        r = call(self.app, "POST", "/login", {"content-type": "application/x-www-form-urlencoded",
+                                               "origin": "http://test", "host": "test"}, body)
+        return r["h"]["set-cookie"].split(";")[0]
+
+    def req(self, method, path, cookie=None, data=None):
+        h = {"origin": "http://test", "host": "test", "content-type": "application/json"}
+        if cookie:
+            h["cookie"] = cookie
+        r = call(self.app, method, path, h, json.dumps(data).encode() if data is not None else b"")
+        r["json"] = json.loads(r["text"]) if r["text"].startswith("{") else None
+        return r
+
+    def test_set_change_remove(self):
+        r = self.req("PUT", "/api/marks/kiff%3A1%2Fa", self.c_anna, {"status": "going"})
+        self.assertEqual(r["status"], 200)
+        self.assertEqual((r["json"]["mark"]["status"], r["json"]["mark"]["ticket"]), ("going", "none"))
+        self.req("PUT", "/api/marks/kiff%3A1%2Fa", self.c_anna, {"status": "going", "ticket": "own"})
+        self.assertEqual(self.store.marks(self.anna)["kiff:1/a"]["ticket"], "own")
+        self.req("PUT", "/api/marks/kiff%3A1%2Fa", self.c_anna, {"status": "interested", "ticket": "own"})
+        self.assertIsNone(self.store.marks(self.anna)["kiff:1/a"]["ticket"])          # Ticket nur bei «going»
+        self.assertEqual(self.req("DELETE", "/api/marks/kiff%3A1%2Fa", self.c_anna)["status"], 200)
+        self.assertEqual(self.store.marks(self.anna), {})
+
+    def test_validation(self):
+        self.assertEqual(self.req("PUT", "/api/marks/kiff%3A2", self.c_anna, {"status": "vielleicht"})["status"], 400)
+        self.assertEqual(self.req("PUT", "/api/marks/kiff%3A2", self.c_anna,
+                                  {"status": "going", "ticket": "gestohlen"})["status"], 400)
+        self.assertEqual(self.req("PUT", "/api/marks/kiff%3A2", self.c_anna, ["x"])["status"], 400)
+        self.assertEqual(self.req("PUT", "/api/marks/gibts%3Anicht", self.c_anna, {"status": "going"})["status"], 404)
+
+    def test_guests_cannot_mark(self):
+        self.assertEqual(self.req("GET", "/api/marks")["status"], 401)
+        self.assertEqual(self.req("PUT", "/api/marks/kiff%3A2", data={"status": "going"})["status"], 401)
+        self.assertEqual(self.req("PUT", "/api/settings", data={"share_marks": True})["status"], 401)
+        self.req("PUT", "/api/marks/kiff%3A2", self.c_anna, {"status": "going"})
+        self.assertEqual(self.req("GET", "/api/marks", self.c_ben)["json"]["mine"], {})          # privat
+
+    def test_sharing_is_opt_in_and_mutual(self):
+        self.req("PUT", "/api/marks/kiff%3A2", self.c_anna, {"status": "going", "ticket": "own"})
+        self.req("PUT", "/api/marks/kiff%3A2", self.c_ben, {"status": "interested"})
+        self.assertEqual(self.req("GET", "/api/marks", self.c_ben)["json"]["others"], {})        # niemand teilt
+        self.req("PUT", "/api/settings", self.c_anna, {"share_marks": True})
+        self.assertEqual(self.req("GET", "/api/marks", self.c_ben)["json"]["others"], {})        # Ben teilt nicht
+        self.assertEqual(self.req("GET", "/api/marks", self.c_anna)["json"]["others"], {})       # Ben teilt nicht
+        self.req("PUT", "/api/settings", self.c_ben, {"share_marks": True})
+        ben = self.req("GET", "/api/marks", self.c_ben)["json"]
+        self.assertTrue(ben["share"])
+        self.assertEqual(ben["others"], {"kiff:2": [{"user": "Anna", "status": "going"}]})       # ohne Ticket
+        self.req("PUT", "/api/settings", self.c_anna, {"share_marks": False})
+        self.assertEqual(self.req("GET", "/api/marks", self.c_ben)["json"]["others"], {})
+
+    def test_csrf_and_user_delete(self):
+        r = call(self.app, "PUT", "/api/marks/kiff%3A2", {"cookie": self.c_anna, "origin": "https://evil.example",
+                                                           "host": "test", "content-type": "application/json"},
+                 b'{"status": "going"}')
+        self.assertEqual(r["status"], 403)
+        self.store.set_mark(self.anna, "kiff:2", "going")
+        self.store.delete_user(self.anna)
+        self.assertEqual(self.store.shared_marks(self.ben), {})
 
 
 class UserCliTests(unittest.TestCase):

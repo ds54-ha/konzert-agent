@@ -52,6 +52,15 @@ CREATE TABLE IF NOT EXISTS sessions (
     last_seen  TEXT NOT NULL,
     expires    TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS marks (    -- pro Benutzer: «Interessiert» / «Gehe hin» (+ Ticket)
+    user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    event_uid TEXT NOT NULL,
+    status    TEXT NOT NULL,       -- interested | going
+    ticket    TEXT,                -- bei going: none | own | other
+    updated   TEXT NOT NULL,
+    PRIMARY KEY (user_id, event_uid)
+);
+CREATE INDEX IF NOT EXISTS idx_marks_event ON marks(event_uid);
 CREATE TABLE IF NOT EXISTS artists (
     key        TEXT PRIMARY KEY,   -- normalisierter Name | Länder-Hinweis
     data       TEXT NOT NULL,      -- ArtistInfo als JSON
@@ -183,6 +192,7 @@ class Store:
     def delete_user(self, user_id: int):
         with self.lock, self.db:
             self.db.execute("DELETE FROM sessions WHERE user_id=?", (user_id,))
+            self.db.execute("DELETE FROM marks WHERE user_id=?", (user_id,))
             self.db.execute("DELETE FROM users WHERE id=?", (user_id,))
 
     def create_session(self, token_hash: str, user_id: int, days: int):
@@ -222,6 +232,46 @@ class Store:
     def count_users(self) -> int:
         with self.lock:
             return self.db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+
+    # ------------------------------------------------------------ Markierungen
+
+    MARK_STATUS = ("interested", "going")
+    TICKETS = ("none", "own", "other")
+
+    def set_mark(self, user_id: int, event_uid: str, status: str | None, ticket: str | None = None):
+        """status None = Markierung entfernen. Ticket nur bei «going» (Standard: noch keins)."""
+        with self.lock, self.db:
+            if status is None:
+                self.db.execute("DELETE FROM marks WHERE user_id=? AND event_uid=?", (user_id, event_uid))
+                return
+            assert status in self.MARK_STATUS and (ticket is None or ticket in self.TICKETS), (status, ticket)
+            ticket = (ticket or "none") if status == "going" else None
+            self.db.execute("INSERT INTO marks (user_id, event_uid, status, ticket, updated) VALUES (?,?,?,?,?)"
+                            " ON CONFLICT(user_id, event_uid) DO UPDATE SET status=excluded.status,"
+                            " ticket=excluded.ticket, updated=excluded.updated",
+                            (user_id, event_uid, status, ticket, _now()))
+
+    def marks(self, user_id: int) -> dict[str, dict]:
+        with self.lock:
+            rows = self.db.execute("SELECT event_uid, status, ticket, updated FROM marks WHERE user_id=?",
+                                   (user_id,)).fetchall()
+        return {r["event_uid"]: {"status": r["status"], "ticket": r["ticket"], "updated": r["updated"]} for r in rows}
+
+    def shared_marks(self, except_user_id: int) -> dict[str, list[dict]]:
+        """Markierungen der anderen, die teilen (Opt-in) – nur Name und Status, kein Ticket."""
+        with self.lock:
+            rows = self.db.execute(
+                "SELECT m.event_uid, u.username, m.status FROM marks m JOIN users u ON u.id = m.user_id"
+                " WHERE u.share_marks = 1 AND u.disabled = 0 AND u.id != ?"
+                " ORDER BY m.status, u.username COLLATE NOCASE", (except_user_id,)).fetchall()
+        out: dict[str, list[dict]] = {}
+        for r in rows:
+            out.setdefault(r["event_uid"], []).append({"user": r["username"], "status": r["status"]})
+        return out
+
+    def event_exists(self, uid: str) -> bool:
+        with self.lock:
+            return self.db.execute("SELECT 1 FROM events WHERE uid=?", (uid,)).fetchone() is not None
 
     # ------------------------------------------------------------ Lesen
 

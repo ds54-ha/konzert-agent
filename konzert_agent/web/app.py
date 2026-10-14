@@ -80,6 +80,46 @@ def create_app(agent: Agent):
         return JSONResponse({"auth": True, "user": {"username": u["username"], "ical_token": u["ical_token"],
                                                     "share_marks": bool(u["share_marks"])}})
 
+    async def api_marks(req):
+        """Eigene Markierungen + (wenn man selbst teilt) die der anderen, die auch teilen."""
+        u = req.state.user
+        if u is None:
+            return JSONResponse({"error": "Nicht angemeldet"}, 401)
+        others = agent.store.shared_marks(u["id"]) if u["share_marks"] else {}
+        return JSONResponse({"mine": agent.store.marks(u["id"]), "others": others, "share": bool(u["share_marks"])})
+
+    async def api_mark(req):
+        u = req.state.user
+        if u is None:
+            return JSONResponse({"error": "Nicht angemeldet"}, 401)
+        uid = req.path_params["uid"]
+        if req.method == "DELETE":
+            agent.store.set_mark(u["id"], uid, None)
+            return JSONResponse({"ok": True})
+        try:
+            body = await req.json()
+            status, ticket = body.get("status"), body.get("ticket")
+        except (ValueError, AttributeError):
+            return JSONResponse({"error": "Ungültige Anfrage"}, 400)
+        if status not in agent.store.MARK_STATUS or (ticket is not None and ticket not in agent.store.TICKETS):
+            return JSONResponse({"error": "Ungültiger Status"}, 400)
+        if not agent.store.event_exists(uid):
+            return JSONResponse({"error": "Unbekanntes Event"}, 404)
+        agent.store.set_mark(u["id"], uid, status, ticket)
+        return JSONResponse({"ok": True, "mark": agent.store.marks(u["id"]).get(uid)})
+
+    async def api_settings(req):
+        u = req.state.user
+        if u is None:
+            return JSONResponse({"error": "Nicht angemeldet"}, 401)
+        try:
+            body = await req.json()
+        except ValueError:
+            return JSONResponse({"error": "Ungültige Anfrage"}, 400)
+        if isinstance(body, dict) and isinstance(body.get("share_marks"), bool):
+            agent.store.update_user(u["id"], share_marks=int(body["share_marks"]))
+        return JSONResponse({"ok": True})
+
     async def personal_ics(req):
         """Kalender-Abo mit geheimem Token – Kalender-Apps können sich nicht anmelden."""
         if not agent.store.user_by_ical_token(req.path_params["token"]):
@@ -136,6 +176,9 @@ def create_app(agent: Agent):
         Route("/api/events", api_events),
         Route("/api/venues", api_venues),
         Route("/api/run", api_run, methods=["POST"]),
+        Route("/api/marks", api_marks),
+        Route("/api/marks/{uid:path}", api_mark, methods=["PUT", "DELETE"]),
+        Route("/api/settings", api_settings, methods=["PUT"]),
         Route("/calendar.ics", ics),
         Route("/ical/{token}.ics", personal_ics),
         Route("/health", health),

@@ -83,7 +83,19 @@ input[type=search]:focus{outline:none;border-color:var(--ink)}
 .ev{display:flex;gap:12px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);border-radius:12px;
   padding:11px 14px;text-decoration:none;box-shadow:var(--shadow);transition:transform .12s}
 .ev:hover{transform:translateX(3px);border-color:var(--ink)}
-.ev .t{font-weight:600;font-size:16px;line-height:1.25}
+.ev .t{font-weight:600;font-size:16px;line-height:1.25;text-decoration:none;display:block}
+.ev .t:hover{text-decoration:underline}
+.ev .body{flex:1;min-width:0}
+.ev.going{border-color:var(--accent)}
+.marks{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px;font-size:12px}
+.mk{border:1px solid var(--line);background:transparent;border-radius:999px;padding:3px 10px;cursor:pointer;font-size:12px;color:var(--muted)}
+.mk:hover{border-color:var(--ink);color:var(--ink)}
+.mk.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.mk.on.go{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.marks select{font-size:12px;padding:2px 6px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+.marks select.todo{border-color:var(--warn);color:var(--warn)}
+.friends{color:var(--muted)}
+.hint{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.4}
 .ev .meta{color:var(--muted);font-size:13px;margin-top:3px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .ev .time{font-family:"JetBrains Mono",monospace;font-size:13px;min-width:44px;padding-top:2px;color:var(--muted)}
 .badge{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:2px 7px;border-radius:999px}
@@ -176,6 +188,12 @@ input[type=search]:focus{outline:none;border-color:var(--ink)}
       <div class="label">Popularität</div>
       <div class="chips" id="pops"></div>
     </div>
+    <div class="group" id="mineGroup" hidden>
+      <div class="label">Meine Konzerte</div>
+      <div class="chips" id="mine"></div>
+      <label class="toggle" style="margin-top:10px"><input type="checkbox" id="share"> Markierungen teilen</label>
+      <div class="hint">Andere Angemeldete sehen, wohin du gehst – und du siehst, wohin sie gehen (nur wer auch teilt).</div>
+    </div>
     <div class="group">
       <label class="toggle"><input type="checkbox" id="onlyNew"> Nur neu angekündigt</label>
     </div>
@@ -214,17 +232,23 @@ const store = {
   set(k, v) { try { localStorage.setItem("ka:"+k, JSON.stringify(v)); } catch {} }
 };
 
-let venues = [], events = [], meta = {}, me = null;
+let venues = [], events = [], meta = {}, me = null, marks = {mine: {}, others: {}, share: false};
 const state = {
   q: "", range: store.get("range", "all"), city: store.get("city", ""), onlyNew: false,
   hidden: new Set(store.get("hidden", [])), view: store.get("view", "list"), cal: new Date(),
-  genres: new Set(store.get("genres", [])), pops: new Set(store.get("pops", [])), sort: store.get("sort", "date")
+  genres: new Set(store.get("genres", [])), pops: new Set(store.get("pops", [])), sort: store.get("sort", "date"),
+  mine: store.get("mine", "")
 };
 state.cal.setDate(1);
 
 const RANGES = [["all","Alle"],["week","7 Tage"],["month","30 Tage"],["weekend","Wochenende"]];
 const POP_LEVELS = [["lokal","unter 1000 Fans"],["Szene","1000 – 20 000 Fans"],["bekannt","20 000 – 300 000 Fans"],["Star","über 300 000 Fans"]];
 const x = e => e.extra || {};
+const MARKS = [["interested","☆ Interessiert"],["going","✓ Gehe hin"]];
+const TICKETS = [["none","Ticket: noch nicht"],["own","Ticket: selbst gekauft"],["other","Ticket: hat jemand anderes"]];
+const MINE = [["","Alle"],["marked","Markiert"],["going","Gehe hin"],["noticket","Ohne Ticket"],["others","Andere gehen"]];
+const isMember = () => !!(me && me.user);
+const myMark = e => marks.mine[e.uid];
 const fans = n => n >= 1e6 ? (n/1e6).toFixed(1)+" Mio." : n >= 1e3 ? Math.round(n/1e3)+"k" : String(n);
 
 function venueColor(id) { const i = venues.findIndex(v => v.id === id); return PALETTE[(i < 0 ? 0 : i) % PALETTE.length]; }
@@ -258,6 +282,13 @@ function visible() {
     }
     if (state.genres.size && !(x(e).genres || []).some(g => state.genres.has(g))) return false;
     if (state.pops.size && !state.pops.has(x(e).popularity_label)) return false;
+    if (isMember() && state.mine) {
+      const m = myMark(e);
+      if (state.mine === "marked" && !m) return false;
+      if (state.mine === "going" && !(m && m.status === "going")) return false;
+      if (state.mine === "noticket" && !(m && m.status === "going" && m.ticket === "none")) return false;
+      if (state.mine === "others" && !marks.others[e.uid]) return false;
+    }
     if (q) {
       const hay = [e.title, e.venue, ...e.tags, ...(x(e).genres || []), ...(x(e).styles || []),
                    ...(x(e).artists || []).map(a => a.name)].join(" ").toLowerCase();
@@ -288,6 +319,10 @@ function renderSidebar() {
     ...[...gCount].sort((a, b) => b[1] - a[1]).map(([g, n]) =>
       `<button class="chip ${state.genres.has(g)?"on":""}" data-k="${esc(g)}">${esc(g)}<small>${n}</small></button>`)].join("");
   $("#popGroup").hidden = !events.some(e => x(e).popularity_label);
+  $("#mineGroup").hidden = !isMember();
+  $("#mine").innerHTML = MINE.filter(([k]) => k !== "others" || marks.share)
+    .map(([k, l]) => `<button class="chip ${state.mine===k?"on":""}" data-k="${k}">${l}</button>`).join("");
+  $("#share").checked = marks.share;
   $("#pops").innerHTML = [`<button class="chip ${state.pops.size?"":"on"}" data-k="">Alle</button>`,
     ...POP_LEVELS.map(([k, tip]) => `<button class="chip ${state.pops.has(k)?"on":""}" data-k="${k}" title="${tip}">${k}</button>`)].join("");
   $("#venues").innerHTML = venues.map(v => {
@@ -322,10 +357,24 @@ function evCard(e) {
   const tags = genres.slice(0,3).map(t => `<span class="tag" title="${esc(styleTip)}">${esc(t)}</span>`).join("");
   const range = e.end_date ? ` · bis ${parse(e.end_date).toLocaleDateString("de-CH",{day:"numeric",month:"short"})}` : "";
   const price = e.extra && e.extra.price ? ` · ${esc(e.extra.price)}` : "";
-  return `<a class="ev ${e.cancelled?"cxl":""}" href="${esc(e.url)}" target="_blank" rel="noopener" style="border-left:4px solid ${venueColor(e.venue_id)}">
+  const m = myMark(e);
+  return `<div class="ev ${e.cancelled?"cxl":""} ${m && m.status==="going"?"going":""}" style="border-left:4px solid ${venueColor(e.venue_id)}">
     <span class="time">${esc(e.time || "")}</span>
-    <span><div class="t">${esc(e.title)}</div>
-    <div class="meta"><span>${esc(e.venue)}${e.city ? ", "+esc(e.city) : ""}${range}${price}</span>${badges}${popBadge(e)}${tags}</div></span></a>`;
+    <span class="body"><a class="t" href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.title)}</a>
+    <div class="meta"><span>${esc(e.venue)}${e.city ? ", "+esc(e.city) : ""}${range}${price}</span>${badges}${popBadge(e)}${tags}</div>
+    ${markBar(e)}</span></div>`;
+}
+
+function markBar(e) {                       // nur für Angemeldete
+  if (!isMember()) return "";
+  const m = myMark(e), uid = esc(e.uid);
+  const btns = MARKS.map(([k, l]) => `<button class="mk ${m && m.status===k?"on":""} ${k==="going"?"go":""}" data-uid="${uid}" data-mark="${k}">${l}</button>`).join("");
+  const ticket = m && m.status === "going" ? `<select data-uid="${uid}" data-ticket class="${m.ticket==="none"?"todo":""}">${
+    TICKETS.map(([k, l]) => `<option value="${k}" ${m.ticket===k?"selected":""}>${l}</option>`).join("")}</select>` : "";
+  const others = marks.others[e.uid] || [];
+  const friends = others.length ? `<span class="friends" title="${esc(others.map(o => o.user + (o.status==="going"?": geht hin":": interessiert")).join("\n"))}">👥 ${
+    others.map(o => esc(o.user) + (o.status==="going" ? " ✓" : " ☆")).join(", ")}</span>` : "";
+  return `<div class="marks">${btns}${ticket}${friends}</div>`;
 }
 
 function renderList(list) {
@@ -358,6 +407,11 @@ function renderByPopularity(list) {
   }).join("");
 }
 
+function pillMark(e) {
+  const m = isMember() && myMark(e);
+  return !m ? "" : m.status === "going" ? "✓ " : "☆ ";
+}
+
 function renderMonth(list) {
   const c = state.cal, y = c.getFullYear(), m = c.getMonth();
   const first = new Date(y, m, 1), offset = (first.getDay() + 6) % 7;
@@ -373,7 +427,7 @@ function renderMonth(list) {
     if (i >= 35 && d.getMonth() !== m) break;
     const k = iso(d), evs = byDay.get(k) || [];
     const shown = evs.slice(0, 4).map(e => `<a class="pill" style="--vc:${venueColor(e.venue_id)}" href="${esc(e.url)}" target="_blank" rel="noopener"
-      title="${esc((e.time ? e.time+" · " : "") + e.title + " – " + e.venue)}">${e.is_new?"● ":""}${esc(e.title)}</a>`).join("");
+      title="${esc((e.time ? e.time+" · " : "") + e.title + " – " + e.venue)}">${pillMark(e)}${e.is_new?"● ":""}${esc(e.title)}</a>`).join("");
     const more = evs.length > 4 ? `<div class="more">+${evs.length - 4} weitere</div>` : "";
     cells += `<div class="cell ${d.getMonth()!==m?"out":""} ${k===todayIso?"today":""}"><div class="num">${d.getDate()}</div>${shown}${more}</div>`;
   }
@@ -417,6 +471,7 @@ async function api(path, opts) {
 async function load() {
   const [m, v, e] = await Promise.all([api("api/me"), api("api/venues"), api("api/events")]);
   me = m; venues = v.venues; meta = v; events = e;
+  marks = isMember() ? await api("api/marks") : {mine: {}, others: {}, share: false};
   // Gäste sehen nur den Kalender; Funktionen für Angemeldete erst nach «Anmelden»
   const member = !!(me && me.user), guest = !!(me && me.auth && !me.user);
   $("#who").hidden = !member;
@@ -451,6 +506,31 @@ function toggleChip(set, key, k) {          // «Alle» leert die Auswahl, sonst
 }
 $("#genres").addEventListener("click", e => { const b = e.target.closest("[data-k]"); if (b) toggleChip(state.genres, "genres", b.dataset.k); });
 $("#pops").addEventListener("click", e => { const b = e.target.closest("[data-k]"); if (b) toggleChip(state.pops, "pops", b.dataset.k); });
+$("#mine").addEventListener("click", e => { const b = e.target.closest("[data-k]"); if (!b) return; state.mine = b.dataset.k; store.set("mine", state.mine); renderSidebar(); render(); });
+$("#share").addEventListener("change", async e => {
+  await api("api/settings", { method: "PUT", headers: {"content-type": "application/json"}, body: JSON.stringify({share_marks: e.target.checked}) });
+  marks = await api("api/marks");
+  toast(e.target.checked ? "Markierungen werden geteilt" : "Markierungen sind wieder privat");
+  if (!marks.share && state.mine === "others") state.mine = "";
+  renderSidebar(); render();
+});
+async function saveMark(uid, mark) {        // mark null = entfernen
+  const path = "api/marks/" + encodeURIComponent(uid);
+  const r = mark ? await api(path, { method: "PUT", headers: {"content-type": "application/json"}, body: JSON.stringify(mark) })
+                 : await api(path, { method: "DELETE" });
+  if (r.error) { toast(r.error); return; }
+  if (mark) marks.mine[uid] = r.mark; else delete marks.mine[uid];
+  render();
+}
+$("#view").addEventListener("click", e => {
+  const b = e.target.closest("[data-mark]"); if (!b) return;
+  const cur = marks.mine[b.dataset.uid];
+  saveMark(b.dataset.uid, cur && cur.status === b.dataset.mark ? null           // nochmals klicken = entfernen
+    : { status: b.dataset.mark, ticket: cur && cur.ticket || undefined });
+});
+$("#view").addEventListener("change", e => {
+  const s = e.target.closest("[data-ticket]"); if (s) saveMark(s.dataset.uid, { status: "going", ticket: s.value });
+});
 $("#filtersBtn").onclick = () => $("#aside").classList.toggle("open");
 $("#icsLink").addEventListener("click", ev => {
   ev.preventDefault();
