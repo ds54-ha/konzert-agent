@@ -27,9 +27,11 @@
 
 ## Weitere Locations
 
-- [ ] 6. Neue Scraper: Dynamo (Zürich), X-tra (Zürich), Nordportal (Baden),
-         Old Capitol (Langenthal), Z7 (Pratteln)
-  - zuerst prüfen: PETZI-Organiser vorhanden? schema.org/iCal? robots.txt?
-  - X-tra sperrt Bots per robots.txt (siehe README) → Alternative suchen (PETZI, Ticketing-Seite)
+- [x] 6. Neue Scraper: Dynamo (Zürich), X-tra (Zürich), Nordportal (Baden),
+         Old Capitol (Langenthal), Z7 (Pratteln) (v1.4.0)
+  - Old Capitol: PETZI 268307 · Z7: `css` · X-tra/Dynamo/Nordportal: eigene Scraper
+  - X-tra erlaubt Bots inzwischen (robots.txt «Allow: /»)
+  - [ ] Dynamo zeigt nur ~6 Wochen; die Drupal-JSON:API (dynamo.nodehive.app) hätte alles, enthält aber
+        private Kontaktdaten der Veranstalter → bewusst nicht verwendet
 
-Reihenfolge (2026-10-14): zuerst 6, dann 4.
+Reihenfolge (2026-10-14): zuerst 6 (erledigt), dann 4.

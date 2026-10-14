@@ -108,7 +108,7 @@ Servern und braucht daher eine öffentlich erreichbare URL (z.B. via Cloudflare 
 
 Der Agent beachtet `robots.txt`, wartet 2 s zwischen Anfragen an denselben Server und lädt
 Detailseiten nur für neue Events. Einige Locations sperren Bots per robots.txt (z.B. merkker.ch,
-x-tra.ch, die Programmseite von kiff.ch) – darum laufen KiFF & Co. über PETZI. Diese Seiten werden
+die Programmseite von kiff.ch) – darum laufen KiFF & Co. über PETZI. Diese Seiten werden
 mit `respect_robots: true` übersprungen und im Kalender als Fehler markiert.
 
 Ausnahme: Die Band-Infos kommen über die offiziellen APIs von MusicBrainz und Deezer. MusicBrainz sperrt
@@ -117,10 +117,17 @@ erkennbarer User-Agent). Diese Anfragen laufen darum ohne robots-Prüfung, aber 
 
 ## Hinweise
 
-- Die Scraper für **Exil** und **Hallenstadion** lesen die HTML-Struktur der Seiten; ändert sich das
-  Layout, meldet der Kalender bei der Location «⚠ Fehler» bzw. 0 Events → mit `test <id>` prüfen.
+- Die Scraper für **Exil**, **Hallenstadion**, **X-tra**, **Dynamo**, **Z7** und **Schüür** lesen die
+  HTML-Struktur der Seiten; ändert sich das Layout, meldet der Kalender bei der Location «⚠ Fehler»
+  bzw. 0 Events → mit `test <id>` prüfen.
 - Hallenstadion zeigt auf der Übersicht nur 12 Events; der Scraper lädt die weiteren Seiten über den
   «mehr laden»-Endpunkt (`admin-ajax.php`, ≈ 8 Seiten → 8 Anfragen à 2 s pro Lauf).
+- **X-tra** zeigt 9 Events; der Rest kommt wie im Browser über «Alle anzeigen» (POST mit dem
+  CSRF-Token der Seite). Klappt das nicht mehr, bleiben die ersten 9 und im Log steht eine Warnung.
+- **Dynamo** zeigt nur ~6 Wochen im Voraus – spätere Konzerte erscheinen, sobald sie nachrücken. Die
+  Uhrzeiten in der Liste sind UTC und werden umgerechnet.
+- **Nordportal** lädt sein Programm per JavaScript aus einer WordPress-API (`npwp.kailua.ch`); der
+  Scraper fragt dieselbe API ab. Standard: nur Liveshows (`kinds` in config.yaml).
 - Wenn `./data` nicht beschreibbar ist (Container läuft als UID 1000): `sudo chown 1000 data`.
 
 ## Tests

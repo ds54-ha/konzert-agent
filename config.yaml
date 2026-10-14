@@ -109,6 +109,47 @@ venues:
     exclude: ["Swiss Cup", "Super10Kampf", "Eishockey", "Red Bull", "Cavalluna", "Holiday on Ice",
               "Felix Lobrecht", "Comedy", "Sport"]
 
+  - id: xtra
+    name: X-tra
+    city: Zürich
+    type: xtra                      # lädt «Alle anzeigen» nach (sonst nur 9 Events)
+    url: https://www.x-tra.ch/de/programm/
+    exclude: ["Party", "Disco"]     # Partys ausblenden (wie bei Dynamo/Nordportal)
+
+  - id: dynamo
+    name: Dynamo
+    city: Zürich
+    type: dynamo                    # Seite zeigt nur ~6 Wochen im Voraus
+    url: https://www.dynamo.ch/events-kurse
+    options: {kinds: [Konzert]}     # z.B. [Konzert, Party] für auch Partys
+
+  - id: nordportal
+    name: Nordportal
+    city: Baden
+    type: nordportal
+    url: https://nordportal.ch/programm/all
+    options: {kinds: [Liveshow]}    # [Liveshow, Party, Sonstiges] für alles
+
+  # --- Bern / Basel ---
+  - id: oldcapitol
+    name: Old Capitol
+    city: Langenthal
+    type: petzi
+    options: {organiser: 268307}
+
+  - id: z7
+    name: Z7 Konzertfabrik
+    city: Pratteln
+    type: css
+    url: https://z-7.ch/
+    options:
+      item: "article:not(:has(article)):has(time[datetime])"   # innerste <article> mit Datum
+      title: "h2"
+      date: "time"
+      date_attr: datetime
+      link: "a[href*='/event/']"
+      tags: "a span"                # Bühne («Mini Z7») bzw. auswärtiger Ort
+
   # --- Luzern ---
   - id: schuur
     name: Konzerthaus Schüür

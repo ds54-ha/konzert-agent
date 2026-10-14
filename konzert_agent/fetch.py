@@ -62,10 +62,17 @@ class Fetcher:
             self._last_hit[host] = time.monotonic()
 
     def get(self, url: str) -> str:
+        return self._request("GET", url)
+
+    def post(self, url: str, data: dict, headers: dict | None = None) -> str:
+        """Für «mehr laden»-Knöpfe, die per POST nachladen (Cookies der Sitzung bleiben erhalten)."""
+        return self._request("POST", url, data=data, headers=headers)
+
+    def _request(self, method: str, url: str, **kw) -> str:
         if not self.allowed(url):
             raise RobotsDisallowed(f"robots.txt verbietet {url}")
         self._throttle(urlsplit(url).netloc)
-        r = self.session.get(url, timeout=self.timeout)
+        r = self.session.request(method, url, timeout=self.timeout, **kw)
         r.raise_for_status()
         if not r.encoding or r.encoding.lower() == "iso-8859-1":
             r.encoding = r.apparent_encoding
