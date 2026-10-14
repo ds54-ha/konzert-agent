@@ -6,6 +6,7 @@
     extra["popularity"]       – 0–100, vom Headliner (erste gefundene Band im Titel)
     extra["popularity_label"] – lokal | Szene | bekannt | Star
     extra["artists_skip"]     – Grund, falls keine Bands gesucht wurden (Party, Comedy …)
+    extra["artists_retry"]    – true, wenn eine Quelle nicht antwortete -> Backfill versucht es erneut
 
 Genres und Popularität stammen nur aus Treffern mit Sicherheit «hoch» oder «mittel»; unsichere Treffer
 stehen zwar in extra["artists"], fliessen aber nicht ein.
@@ -20,7 +21,8 @@ from .genres import classify, popularity, popularity_label
 from .lookup import ArtistLookup
 
 CONFIDENT = {"hoch", "mittel"}
-EXTRA_KEYS = ("artists", "genres", "genres_source", "styles", "popularity", "popularity_label", "artists_skip")
+EXTRA_KEYS = ("artists", "genres", "genres_source", "styles", "popularity", "popularity_label", "artists_skip",
+              "artists_retry")
 
 
 class ArtistEnricher:
@@ -40,9 +42,10 @@ class ArtistEnricher:
         for k in EXTRA_KEYS:
             ev.extra.pop(k, None)
         names, reason = self.names_for(ev)
-        artists = []
+        artists, failed = [], False
         for n in names:
             for info in self.lookup.lookup(n):
+                failed |= any(note.endswith("-Fehler") for note in info.notes)
                 groups, styles = classify(info.tags)
                 artists.append({
                     "name": info.name or info.query, "query": info.query, "confidence": info.confidence,
@@ -66,4 +69,6 @@ class ArtistEnricher:
         })
         if reason:
             ev.extra["artists_skip"] = reason
+        if failed:
+            ev.extra["artists_retry"] = True
         return ev

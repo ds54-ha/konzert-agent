@@ -9,8 +9,27 @@
   - [ ] Last.fm als zusätzliche Genre-Quelle (API-Key folgt später)
   - [x] Ohne MusicBrainz-Genres auf die Tags der Location (PETZI/Schüür) zurückfallen
   - [x] Manuelle Korrektur falscher Zuordnungen (`artists.overrides` / `artists.titles` in config.yaml)
-- [ ] 3. Oberfläche: Genre-Filter, Popularitäts-Badge, Sortierung nach Popularität
-- [ ] 4. Login (auch von ausserhalb des Heimnetzes): Benutzer per Befehl anlegen, Favoriten-Stern,
-         «Meine Favoriten», persönlicher iCal-Link mit geheimem Token, Login-Sperre nach Fehlversuchen,
-         `/api/run` nur mit Login
+- [x] 3. Oberfläche: Genre-Filter, Popularitäts-Badge, Sortierung nach Popularität;
+         Genre/Popularität auch im iCal-Abo (`?genre=…&pop=…`) (v1.3.0)
+- [ ] 4. Login (auch von ausserhalb des Heimnetzes) – **alles hinter Login**, nur die persönlichen
+         iCal-Links funktionieren ohne (geheimer Token)
+  - [ ] 4a. Login: Benutzer per Befehl anlegen, Login-Seite, Logout, Sperre nach Fehlversuchen,
+            `/api/run` nur mit Login
+  - [ ] 4b. Konzerte markieren pro Benutzer: «Interessiert» / «Gehe hin»
+    - [ ] Ticket-Status: «Ja, selbst gekauft» / «Ja, jemand anderes hat sie» / «Noch nicht»
+  - [ ] 4c. Eigene Unterseite pro Benutzer: Dashboard mit allen markierten Konzerten
+            (anstehend, Tickets fehlen noch, vergangene)
+  - [ ] 4d. Persönlicher iCal-Link mit den markierten Konzerten (Status im Titel/Beschreibung),
+            Link erneuerbar
+  - [ ] Offen: Zugang von aussen (Cloudflare Tunnel / Tailscale Funnel / Reverse Proxy)?
+  - [ ] Offen: Sehen Benutzer gegenseitig, wer an ein Konzert geht?
 - [ ] 5. Optional: Bands folgen → Telegram-Meldung bei neuer Show
+
+## Weitere Locations
+
+- [ ] 6. Neue Scraper: Dynamo (Zürich), X-tra (Zürich), Nordportal (Baden),
+         Old Capitol (Langenthal), Z7 (Pratteln)
+  - zuerst prüfen: PETZI-Organiser vorhanden? schema.org/iCal? robots.txt?
+  - X-tra sperrt Bots per robots.txt (siehe README) → Alternative suchen (PETZI, Ticketing-Seite)
+
+Reihenfolge (2026-10-14): zuerst 6, dann 4.

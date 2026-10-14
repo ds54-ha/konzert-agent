@@ -200,6 +200,22 @@ class EnrichTests(unittest.TestCase):
         x = self.enricher().apply(self.ev("Noche Cubana", ["Party"])).extra
         self.assertEqual((x["artists"], x["artists_skip"]), ([], "Party"))
 
+    def test_failed_source_marks_retry(self):
+        api = FakeApi(MB, DZ)
+        real_get = api.get
+
+        def down(url):
+            if "musicbrainz" in url:
+                raise ConnectionError("down")
+            return real_get(url)
+        api.get = down
+        x = ArtistEnricher(ArtistLookup("t", fetcher=api)).apply(self.ev("Monolord (SE)")).extra
+        self.assertTrue(x["artists_retry"])
+        api.get = real_get                                   # wieder erreichbar -> Flag verschwindet
+        x = ArtistEnricher(ArtistLookup("t", fetcher=api)).apply(self.ev("Monolord (SE)")).extra
+        self.assertNotIn("artists_retry", x)
+        self.assertEqual(x["genres"], ["Metal", "Rock"])
+
     def test_title_override(self):
         enr = self.enricher(**{"Goth Night": [], "Ska-Night": ["Monolord"]})
         self.assertEqual(enr.apply(self.ev("Goth Night – Volume 2 • heavy beats")).extra["artists_skip"], "manuell")
@@ -226,6 +242,9 @@ class AgentArtistTests(unittest.TestCase):
             agent.artists = ArtistEnricher(ArtistLookup("t", fetcher=FakeApi(MB, DZ), cache=agent.store))
             self.assertEqual(agent.backfill_artists(), 2)
             self.assertEqual(agent.backfill_artists(), 0)            # schon erledigt
+            row = agent.store.events()[0]
+            agent.store.update_extra(row["uid"], {**row["extra"], "artists_retry": True})
+            self.assertEqual(agent.backfill_artists(), 1)            # fehlgeschlagene werden wiederholt
             agent.run(notify=False)                                   # Re-Scrape darf Genres nicht löschen
             shown = agent.filtered_events(agent.store.events())
             self.assertEqual([e["title"] for e in shown], ["Monolord (SE)"])  # include: Metal greift

@@ -25,6 +25,7 @@
   --shadow:0 1px 0 rgba(255,255,255,.03),0 8px 24px -14px rgba(0,0,0,.8);
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Archivo,system-ui,sans-serif;font-size:15px}
 a{color:inherit}
 button,input,select{font:inherit;color:inherit}
@@ -90,6 +91,15 @@ input[type=search]:focus{outline:none;border-color:var(--ink)}
 .b-cxl{border:1px solid var(--warn);color:var(--warn)}
 .ev.cxl .t{text-decoration:line-through;opacity:.6}
 .tag{background:var(--chip);padding:1px 7px;border-radius:6px;font-size:12px}
+.pop{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--muted)}
+.pop.star{color:var(--accent);font-weight:600}
+.bars{display:inline-flex;gap:2px;align-items:flex-end;height:12px}
+.bars i{width:3px;background:var(--line);border-radius:1px}
+.bars i:nth-child(1){height:4px} .bars i:nth-child(2){height:7px} .bars i:nth-child(3){height:10px} .bars i:nth-child(4){height:12px}
+.bars i.on{background:var(--accent)}
+.chip small{opacity:.6;margin-left:4px}
+.dlabel .mo{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:3px}
+.tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 
 /* Monat */
 .cal-nav{display:flex;align-items:center;gap:10px}
@@ -153,6 +163,14 @@ input[type=search]:focus{outline:none;border-color:var(--ink)}
       <div class="label">Stadt</div>
       <div class="chips" id="cities"></div>
     </div>
+    <div class="group" id="genreGroup" hidden>
+      <div class="label">Genre</div>
+      <div class="chips" id="genres"></div>
+    </div>
+    <div class="group" id="popGroup" hidden>
+      <div class="label">Popularität</div>
+      <div class="chips" id="pops"></div>
+    </div>
     <div class="group">
       <label class="toggle"><input type="checkbox" id="onlyNew"> Nur neu angekündigt</label>
     </div>
@@ -165,7 +183,10 @@ input[type=search]:focus{outline:none;border-color:var(--ink)}
 
   <main>
     <div class="toolbar">
-      <div class="seg"><button data-view="list" class="on">Liste</button><button data-view="month">Monat</button></div>
+      <div class="tools">
+        <div class="seg" id="viewSeg"><button data-view="list" class="on">Liste</button><button data-view="month">Monat</button></div>
+        <div class="seg" id="sortSeg" title="Sortierung der Liste"><button data-sort="date" class="on">Datum</button><button data-sort="pop">Popularität</button></div>
+      </div>
       <span class="count" id="count"></span>
     </div>
     <div id="view"></div>
@@ -191,11 +212,15 @@ const store = {
 let venues = [], events = [], meta = {};
 const state = {
   q: "", range: store.get("range", "all"), city: store.get("city", ""), onlyNew: false,
-  hidden: new Set(store.get("hidden", [])), view: store.get("view", "list"), cal: new Date()
+  hidden: new Set(store.get("hidden", [])), view: store.get("view", "list"), cal: new Date(),
+  genres: new Set(store.get("genres", [])), pops: new Set(store.get("pops", [])), sort: store.get("sort", "date")
 };
 state.cal.setDate(1);
 
 const RANGES = [["all","Alle"],["week","7 Tage"],["month","30 Tage"],["weekend","Wochenende"]];
+const POP_LEVELS = [["lokal","unter 1000 Fans"],["Szene","1000 – 20 000 Fans"],["bekannt","20 000 – 300 000 Fans"],["Star","über 300 000 Fans"]];
+const x = e => e.extra || {};
+const fans = n => n >= 1e6 ? (n/1e6).toFixed(1)+" Mio." : n >= 1e3 ? Math.round(n/1e3)+"k" : String(n);
 
 function venueColor(id) { const i = venues.findIndex(v => v.id === id); return PALETTE[(i < 0 ? 0 : i) % PALETTE.length]; }
 
@@ -226,7 +251,13 @@ function visible() {
       if (end < a) return false;
       if (b && d > b) return false;
     }
-    if (q && !(e.title + " " + e.tags.join(" ") + " " + e.venue).toLowerCase().includes(q)) return false;
+    if (state.genres.size && !(x(e).genres || []).some(g => state.genres.has(g))) return false;
+    if (state.pops.size && !state.pops.has(x(e).popularity_label)) return false;
+    if (q) {
+      const hay = [e.title, e.venue, ...e.tags, ...(x(e).genres || []), ...(x(e).styles || []),
+                   ...(x(e).artists || []).map(a => a.name)].join(" ").toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
     return true;
   });
 }
@@ -245,6 +276,15 @@ function renderSidebar() {
   const cities = [...new Set(venues.map(v => v.city).filter(Boolean))].sort();
   $("#cities").innerHTML = [["","Alle"], ...cities.map(c => [c,c])]
     .map(([k,l]) => `<button class="chip ${state.city===k?"on":""}" data-k="${esc(k)}">${esc(l)}</button>`).join("");
+  const gCount = new Map();
+  events.forEach(e => (x(e).genres || []).forEach(g => gCount.set(g, (gCount.get(g) || 0) + 1)));
+  $("#genreGroup").hidden = !gCount.size;
+  $("#genres").innerHTML = [`<button class="chip ${state.genres.size?"":"on"}" data-k="">Alle</button>`,
+    ...[...gCount].sort((a, b) => b[1] - a[1]).map(([g, n]) =>
+      `<button class="chip ${state.genres.has(g)?"on":""}" data-k="${esc(g)}">${esc(g)}<small>${n}</small></button>`)].join("");
+  $("#popGroup").hidden = !events.some(e => x(e).popularity_label);
+  $("#pops").innerHTML = [`<button class="chip ${state.pops.size?"":"on"}" data-k="">Alle</button>`,
+    ...POP_LEVELS.map(([k, tip]) => `<button class="chip ${state.pops.has(k)?"on":""}" data-k="${k}" title="${tip}">${k}</button>`)].join("");
   $("#venues").innerHTML = venues.map(v => {
     const run = v.run;
     const cls = !run ? "none" : run.last_error ? "err" : "";
@@ -257,19 +297,30 @@ function renderSidebar() {
   }).join("");
 }
 
+function popBadge(e) {
+  const lvl = POP_LEVELS.findIndex(([k]) => k === x(e).popularity_label);
+  if (lvl < 0) return "";
+  const who = (x(e).artists || []).filter(a => a.fans != null && (a.confidence === "hoch" || a.confidence === "mittel"))
+    .map(a => `${a.name}${a.country ? " ("+a.country+")" : ""}: ${fans(a.fans)} Fans auf Deezer`).join("\n");
+  const bars = [0,1,2,3].map(i => `<i class="${i <= lvl ? "on" : ""}"></i>`).join("");
+  return `<span class="pop ${lvl === 3 ? "star" : ""}" title="Popularität ${x(e).popularity}/100\n${esc(who)}"><span class="bars">${bars}</span>${esc(x(e).popularity_label)}</span>`;
+}
+
 function evCard(e) {
   const badges = [
     e.is_new ? `<span class="badge b-new">neu</span>` : "",
     e.sold_out ? `<span class="badge b-sold">ausverkauft</span>` : "",
     e.cancelled ? `<span class="badge b-cxl">abgesagt</span>` : "",
   ].join("");
-  const tags = e.tags.slice(0,3).map(t => `<span class="tag">${esc(t)}</span>`).join("");
+  const genres = x(e).genres && x(e).genres.length ? x(e).genres : e.tags;
+  const styleTip = (x(e).styles || []).join(", ");
+  const tags = genres.slice(0,3).map(t => `<span class="tag" title="${esc(styleTip)}">${esc(t)}</span>`).join("");
   const range = e.end_date ? ` · bis ${parse(e.end_date).toLocaleDateString("de-CH",{day:"numeric",month:"short"})}` : "";
   const price = e.extra && e.extra.price ? ` · ${esc(e.extra.price)}` : "";
   return `<a class="ev ${e.cancelled?"cxl":""}" href="${esc(e.url)}" target="_blank" rel="noopener" style="border-left:4px solid ${venueColor(e.venue_id)}">
     <span class="time">${esc(e.time || "")}</span>
     <span><div class="t">${esc(e.title)}</div>
-    <div class="meta"><span>${esc(e.venue)}${e.city ? ", "+esc(e.city) : ""}${range}${price}</span>${badges}${tags}</div></span></a>`;
+    <div class="meta"><span>${esc(e.venue)}${e.city ? ", "+esc(e.city) : ""}${range}${price}</span>${badges}${popBadge(e)}${tags}</div></span></a>`;
 }
 
 function renderList(list) {
@@ -288,6 +339,18 @@ function renderList(list) {
       <div class="evs">${byDay.get(k).map(evCard).join("")}</div></div>`;
   });
   return html;
+}
+
+function renderByPopularity(list) {
+  if (!list.length) return `<div class="empty">Keine Konzerte für diese Filter.</div>`;
+  const pop = e => x(e).popularity ?? -1;
+  const sorted = [...list].sort((a, b) => pop(b) - pop(a) || a.date.localeCompare(b.date));
+  return sorted.map(e => {
+    const d = parse(e.date);
+    return `<div class="day"><div class="dlabel ${e.date===todayIso?"today":""}"><div class="wd">${e.date===todayIso?"heute":WD[d.getDay()]}</div>
+      <div class="dn">${d.getDate()}</div><div class="mo">${MONTHS[d.getMonth()].slice(0,3)} ${d.getFullYear() % 100}</div></div>
+      <div class="evs">${evCard(e)}</div></div>`;
+  }).join("");
 }
 
 function renderMonth(list) {
@@ -317,8 +380,11 @@ function renderMonth(list) {
 function render() {
   const list = visible();
   $("#count").textContent = `${list.length} Event${list.length===1?"":"s"}`;
-  document.querySelectorAll(".seg button").forEach(b => b.classList.toggle("on", b.dataset.view === state.view));
-  $("#view").innerHTML = state.view === "month" ? renderMonth(list) : renderList(list);
+  document.querySelectorAll("#viewSeg button").forEach(b => b.classList.toggle("on", b.dataset.view === state.view));
+  document.querySelectorAll("#sortSeg button").forEach(b => b.classList.toggle("on", b.dataset.sort === state.sort));
+  $("#sortSeg").hidden = state.view === "month" || !events.some(e => x(e).popularity != null);
+  $("#view").innerHTML = state.view === "month" ? renderMonth(list)
+    : state.sort === "pop" && !$("#sortSeg").hidden ? renderByPopularity(list) : renderList(list);
   if (state.view === "month") {
     $("#prevM").onclick = () => { state.cal.setMonth(state.cal.getMonth() - 1); render(); };
     $("#nextM").onclick = () => { state.cal.setMonth(state.cal.getMonth() + 1); render(); };
@@ -328,6 +394,8 @@ function render() {
   const p = new URLSearchParams();
   if (shownVenues.length !== venues.length) p.set("venues", shownVenues.join(","));
   if (state.q) p.set("q", state.q);
+  state.genres.forEach(g => p.append("genre", g));
+  state.pops.forEach(k => p.append("pop", k));
   $("#icsLink").href = "calendar.ics" + (p.toString() ? "?" + p : "");
 }
 
@@ -355,7 +423,14 @@ $("#venues").addEventListener("change", e => {
 });
 $("#allV").onclick = () => { state.hidden.clear(); store.set("hidden", []); renderSidebar(); render(); };
 $("#noneV").onclick = () => { venues.forEach(v => state.hidden.add(v.id)); store.set("hidden", [...state.hidden]); renderSidebar(); render(); };
-document.querySelectorAll(".seg button").forEach(b => b.onclick = () => { state.view = b.dataset.view; store.set("view", state.view); render(); });
+document.querySelectorAll("#viewSeg button").forEach(b => b.onclick = () => { state.view = b.dataset.view; store.set("view", state.view); render(); });
+document.querySelectorAll("#sortSeg button").forEach(b => b.onclick = () => { state.sort = b.dataset.sort; store.set("sort", state.sort); render(); });
+function toggleChip(set, key, k) {          // «Alle» leert die Auswahl, sonst Mehrfachauswahl
+  if (k === "") set.clear(); else set.has(k) ? set.delete(k) : set.add(k);
+  store.set(key, [...set]); renderSidebar(); render();
+}
+$("#genres").addEventListener("click", e => { const b = e.target.closest("[data-k]"); if (b) toggleChip(state.genres, "genres", b.dataset.k); });
+$("#pops").addEventListener("click", e => { const b = e.target.closest("[data-k]"); if (b) toggleChip(state.pops, "pops", b.dataset.k); });
 $("#filtersBtn").onclick = () => $("#aside").classList.toggle("open");
 $("#icsLink").addEventListener("click", ev => {
   ev.preventDefault();

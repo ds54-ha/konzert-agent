@@ -38,6 +38,12 @@ def create_app(agent: Agent) -> Starlette:
                                  new_days=int(p["new"]) if p.get("new") else None)
         if p.get("raw") != "1":
             evs = agent.filtered_events(evs)
+        # mehrfach erlaubt: ?genre=Metal&genre=Rock (Genre-Namen enthalten Kommas, z.B. «Soul, R&B & Funk»)
+        genres, pops = set(p.getlist("genre")), set(p.getlist("pop"))
+        if genres:
+            evs = [e for e in evs if genres & set(e["extra"].get("genres") or [])]
+        if pops:
+            evs = [e for e in evs if e["extra"].get("popularity_label") in pops]
         return [e for e in evs if e["venue_id"] in venue_meta]
 
     async def index(req):

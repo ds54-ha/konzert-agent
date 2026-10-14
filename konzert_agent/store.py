@@ -139,7 +139,7 @@ class Store:
         if q:
             sql += " AND (title LIKE ? OR tags LIKE ? OR extra LIKE ?)"; args += [f"%{q}%"] * 3
         if without_artists:
-            sql += " AND extra NOT LIKE '%\"artists\":%'"
+            sql += " AND (extra NOT LIKE '%\"artists\":%' OR extra LIKE '%\"artists_retry\": true%')"
         if new_days:
             sql += " AND first_seen >= ?"; args.append((datetime.now() - timedelta(days=new_days)).isoformat())
         sql += " ORDER BY date, time, title"

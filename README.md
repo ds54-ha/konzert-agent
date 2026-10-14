@@ -84,7 +84,11 @@ Ergebnisse werden 30 Tage gespeichert. Daraus entstehen pro Event:
 - **Popularität** 0–100 vom Headliner (logarithmisch aus den Deezer-Fans) und eine Stufe:
   lokal (< 1000 Fans) · Szene (< 20 000) · bekannt (< 300 000) · Star.
 
-Gezählt werden nur sichere Treffer. Kurze oder häufige Namen («Elin», «Sports») werden oft der falschen
+Im Web-Kalender lässt sich nach Genre und Popularität filtern und die Liste nach Popularität sortieren;
+der «iCal-Abo»-Link übernimmt diese Filter (z.B. ein Abo nur mit Metal-Konzerten).
+
+Gezählt werden nur sichere Treffer. Antwortet eine Datenbank nicht, wird das Event in späteren Läufen
+erneut nachgeschlagen. Kurze oder häufige Namen («Elin», «Sports») werden oft der falschen
 Band zugeordnet – mit `artists <location>` prüfen und in `config.yaml` unter `artists:` korrigieren
 (`overrides` pro Bandname, `titles` für Titel ohne echte Bandnamen), danach `artists --save`.
 
