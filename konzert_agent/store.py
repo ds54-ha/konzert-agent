@@ -36,6 +36,22 @@ CREATE TABLE IF NOT EXISTS runs (
     last_error TEXT,
     found     INTEGER DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS users (
+    id          INTEGER PRIMARY KEY,
+    username    TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    pw_hash     TEXT NOT NULL,
+    ical_token  TEXT NOT NULL UNIQUE,  -- geheimes Token für Kalender-Abos
+    share_marks INTEGER DEFAULT 0,     -- Opt-in: andere sehen, wohin man geht
+    disabled    INTEGER DEFAULT 0,
+    created     TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS sessions (
+    token_hash TEXT PRIMARY KEY,       -- SHA-256 des Cookie-Tokens, nie das Token selbst
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created    TEXT NOT NULL,
+    last_seen  TEXT NOT NULL,
+    expires    TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS artists (
     key        TEXT PRIMARY KEY,   -- normalisierter Name | Länder-Hinweis
     data       TEXT NOT NULL,      -- ArtistInfo als JSON
@@ -55,6 +71,7 @@ class Store:
         self.db.row_factory = sqlite3.Row
         self.lock = threading.Lock()
         with self.lock:
+            self.db.execute("PRAGMA foreign_keys = ON")
             self.db.executescript(SCHEMA)
 
     # ------------------------------------------------------------ Schreiben
@@ -124,6 +141,87 @@ class Store:
                 "ON CONFLICT(venue_id) DO UPDATE SET last_run=excluded.last_run, last_error=excluded.last_error,"
                 " found=excluded.found, last_ok=COALESCE(excluded.last_ok, runs.last_ok)",
                 (venue_id, now, None if error else now, error, found))
+
+    # ------------------------------------------------------------ Benutzer & Sitzungen
+
+    _USER_COLS = "id, username, pw_hash, ical_token, share_marks, disabled, created"
+
+    def _user(self, where: str, args) -> dict | None:
+        with self.lock:
+            row = self.db.execute(f"SELECT {self._USER_COLS} FROM users WHERE {where}", args).fetchone()
+        return dict(row) if row else None
+
+    def create_user(self, username: str, pw_hash: str, ical_token: str) -> int:
+        with self.lock, self.db:
+            cur = self.db.execute("INSERT INTO users (username, pw_hash, ical_token, created) VALUES (?,?,?,?)",
+                                  (username, pw_hash, ical_token, _now()))
+            return cur.lastrowid
+
+    def user_by_name(self, username: str) -> dict | None:
+        return self._user("username = ?", (username,))
+
+    def user_by_id(self, user_id: int) -> dict | None:
+        return self._user("id = ?", (user_id,))
+
+    def user_by_ical_token(self, token: str) -> dict | None:
+        return self._user("ical_token = ? AND disabled = 0", (token,))
+
+    def users(self) -> list[dict]:
+        with self.lock:
+            rows = self.db.execute(
+                f"SELECT {self._USER_COLS}, (SELECT MAX(last_seen) FROM sessions s WHERE s.user_id = users.id)"
+                " AS last_seen FROM users ORDER BY username").fetchall()
+        return [dict(r) for r in rows]
+
+    def update_user(self, user_id: int, **fields):
+        allowed = {"pw_hash", "ical_token", "share_marks", "disabled"}
+        assert set(fields) <= allowed, fields
+        with self.lock, self.db:
+            self.db.execute(f"UPDATE users SET {', '.join(f'{k}=?' for k in fields)} WHERE id=?",
+                            (*fields.values(), user_id))
+
+    def delete_user(self, user_id: int):
+        with self.lock, self.db:
+            self.db.execute("DELETE FROM sessions WHERE user_id=?", (user_id,))
+            self.db.execute("DELETE FROM users WHERE id=?", (user_id,))
+
+    def create_session(self, token_hash: str, user_id: int, days: int):
+        now = datetime.now()
+        with self.lock, self.db:
+            self.db.execute("DELETE FROM sessions WHERE expires < ?", (now.isoformat(timespec="seconds"),))
+            self.db.execute("INSERT INTO sessions (token_hash, user_id, created, last_seen, expires) VALUES (?,?,?,?,?)",
+                            (token_hash, user_id, _now(), _now(),
+                             (now + timedelta(days=days)).isoformat(timespec="seconds")))
+
+    def session_user(self, token_hash: str, days: int) -> dict | None:
+        """Benutzer zur Sitzung; verlängert die Sitzung (gleitend) höchstens einmal pro Stunde."""
+        now = datetime.now()
+        with self.lock:
+            row = self.db.execute(
+                f"SELECT s.last_seen, {', '.join('u.' + c for c in self._USER_COLS.split(', '))} FROM sessions s"
+                " JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires >= ? AND u.disabled = 0",
+                (token_hash, now.isoformat(timespec="seconds"))).fetchone()
+            if row is None:
+                return None
+            if row["last_seen"] < (now - timedelta(hours=1)).isoformat():
+                with self.db:
+                    self.db.execute("UPDATE sessions SET last_seen=?, expires=? WHERE token_hash=?",
+                                    (_now(), (now + timedelta(days=days)).isoformat(timespec="seconds"), token_hash))
+        user = dict(row)
+        user.pop("last_seen")
+        return user
+
+    def delete_session(self, token_hash: str):
+        with self.lock, self.db:
+            self.db.execute("DELETE FROM sessions WHERE token_hash=?", (token_hash,))
+
+    def delete_sessions(self, user_id: int) -> int:
+        with self.lock, self.db:
+            return self.db.execute("DELETE FROM sessions WHERE user_id=?", (user_id,)).rowcount
+
+    def count_users(self) -> int:
+        with self.lock:
+            return self.db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
 
     # ------------------------------------------------------------ Lesen
 

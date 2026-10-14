@@ -120,6 +120,8 @@ input[type=search]:focus{outline:none;border-color:var(--ink)}
   border-radius:999px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.show{opacity:1}
 .filters-btn{display:none}
+.who{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.who form{margin:0}
 
 @media (max-width:860px){
   header{padding:20px 16px 14px}
@@ -145,7 +147,10 @@ input[type=search]:focus{outline:none;border-color:var(--ink)}
   <div class="actions">
     <button class="btn filters-btn" id="filtersBtn">Filter</button>
     <a class="btn" id="icsLink" href="calendar.ics" title="In Kalender-App abonnieren (aktuelle Filter)">📅 iCal-Abo</a>
-    <button class="btn primary" id="runBtn">Jetzt prüfen</button>
+    <button class="btn primary" id="runBtn" hidden title="Alle Locations jetzt neu einlesen">Jetzt prüfen</button>
+    <a class="btn primary" id="loginBtn" href="login" hidden>Anmelden</a>
+    <span class="who" id="who" hidden><span id="whoName"></span>
+      <form method="post" action="logout"><button class="btn" type="submit">Abmelden</button></form></span>
   </div>
 </header>
 
@@ -209,7 +214,7 @@ const store = {
   set(k, v) { try { localStorage.setItem("ka:"+k, JSON.stringify(v)); } catch {} }
 };
 
-let venues = [], events = [], meta = {};
+let venues = [], events = [], meta = {}, me = null;
 const state = {
   q: "", range: store.get("range", "all"), city: store.get("city", ""), onlyNew: false,
   hidden: new Set(store.get("hidden", [])), view: store.get("view", "list"), cal: new Date(),
@@ -396,14 +401,29 @@ function render() {
   if (state.q) p.set("q", state.q);
   state.genres.forEach(g => p.append("genre", g));
   state.pops.forEach(k => p.append("pop", k));
-  $("#icsLink").href = "calendar.ics" + (p.toString() ? "?" + p : "");
+  // Kalender-Apps können sich nicht anmelden -> persönlicher Link mit geheimem Token
+  const base = me && me.user ? `ical/${encodeURIComponent(me.user.ical_token)}.ics` : "calendar.ics";
+  $("#icsLink").href = base + (p.toString() ? "?" + p : "");
 }
 
 function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2600); }
 
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  if (r.status === 401) { location.href = "login?next=" + encodeURIComponent(location.pathname); throw new Error("abgemeldet"); }
+  return r.json();
+}
+
 async function load() {
-  const [v, e] = await Promise.all([fetch("api/venues").then(r => r.json()), fetch("api/events").then(r => r.json())]);
-  venues = v.venues; meta = v; events = e;
+  const [m, v, e] = await Promise.all([api("api/me"), api("api/venues"), api("api/events")]);
+  me = m; venues = v.venues; meta = v; events = e;
+  // Gäste sehen nur den Kalender; Funktionen für Angemeldete erst nach «Anmelden»
+  const member = !!(me && me.user), guest = !!(me && me.auth && !me.user);
+  $("#who").hidden = !member;
+  $("#runBtn").hidden = guest;
+  $("#loginBtn").hidden = !guest;
+  $("#loginBtn").href = "login?next=" + encodeURIComponent(location.pathname + location.search);
+  if (me && me.user) $("#whoName").textContent = "👤 " + me.user.username;
   const lastRun = venues.map(x => x.run && x.run.last_run).filter(Boolean).sort().pop();
   const errs = venues.filter(x => x.run && x.run.last_error).length;
   $("#status").textContent = `${events.length} kommende Events · ${venues.length} Locations · zuletzt geprüft ${ago(lastRun)}`
@@ -436,12 +456,13 @@ $("#icsLink").addEventListener("click", ev => {
   ev.preventDefault();
   const url = new URL($("#icsLink").getAttribute("href"), location.href).href;
   (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject())
-    .then(() => toast("iCal-Link kopiert – in der Kalender-App als Abo hinzufügen"))
+    .then(() => toast(me && me.user ? "Persönlicher iCal-Link kopiert – nicht weitergeben, er funktioniert ohne Passwort"
+                                    : "iCal-Link kopiert – in der Kalender-App als Abo hinzufügen"))
     .catch(() => window.open(url));
 });
 $("#runBtn").onclick = async () => {
   const b = $("#runBtn"); b.disabled = true; b.textContent = "prüfe …";
-  await fetch("api/run", { method: "POST" });
+  await api("api/run", { method: "POST" });
   toast("Prüfung gestartet – dauert je nach Anzahl Locations ein paar Minuten");
   setTimeout(async () => { await load(); b.disabled = false; b.textContent = "Jetzt prüfen"; }, 20000);
 };

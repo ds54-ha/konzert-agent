@@ -57,12 +57,24 @@ class ArtistSettings:
 
 
 @dataclass
+class AuthSettings:
+    enabled: bool = True             # Login aktiv (aus = jeder darf alles, nur fürs Heimnetz)
+    guests: bool = True              # Gäste dürfen den Kalender ansehen; Funktionen wie «Jetzt prüfen» nur mit Login
+    session_days: int = 30           # angemeldet bleiben (verlängert sich bei Nutzung)
+    max_failures: int = 5            # Fehlversuche pro Benutzer bzw. IP …
+    lockout_minutes: int = 15        # … innerhalb dieser Zeit -> so lange gesperrt
+    secure_cookies: str = "auto"     # auto: Secure-Cookie, sobald über HTTPS (X-Forwarded-Proto) aufgerufen
+    client_ip_header: str = ""       # hinter Proxy: z.B. CF-Connecting-IP oder X-Real-IP
+
+
+@dataclass
 class Config:
     settings: Settings
     venues: list[VenueConfig]
     notifiers: list[dict]
     plugins: list[str] = field(default_factory=list)
     artists: ArtistSettings = field(default_factory=ArtistSettings)
+    auth: AuthSettings = field(default_factory=AuthSettings)
 
     def venue(self, venue_id: str) -> VenueConfig | None:
         return next((v for v in self.venues if v.id == venue_id), None)
@@ -81,4 +93,5 @@ def load_config(path: str | Path) -> Config:
         seen.add(vc.id)
         venues.append(vc)
     return Config(settings=settings, venues=venues, notifiers=raw.get("notifiers") or [],
-                  plugins=raw.get("plugins") or [], artists=ArtistSettings(**(raw.get("artists") or {})))
+                  plugins=raw.get("plugins") or [], artists=ArtistSettings(**(raw.get("artists") or {})),
+                  auth=AuthSettings(**(raw.get("auth") or {})))

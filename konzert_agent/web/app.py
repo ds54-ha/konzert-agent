@@ -1,18 +1,19 @@
-"""Web-Oberfläche + JSON-API + abonnierbarer iCal-Feed."""
+"""Web-Oberfläche + JSON-API + abonnierbarer iCal-Feed – Gäste nur lesend, mehr mit Login (siehe security.py)."""
 from __future__ import annotations
 
 import threading
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import FileResponse, JSONResponse, Response
+from starlette.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 from .. import __version__
 from ..agent import Agent
+from .security import AuthMiddleware, login_routes
 
 STATIC = Path(__file__).parent / "static"
 
@@ -21,7 +22,7 @@ def _ics_escape(s: str) -> str:
     return s.replace("\\", "\\\\").replace(",", "\\,").replace(";", "\\;").replace("\n", "\\n")
 
 
-def create_app(agent: Agent) -> Starlette:
+def create_app(agent: Agent):
     cfg = agent.config
     venue_meta = {v.id: {"id": v.id, "name": v.name, "city": v.city, "type": v.type, "url": v.url}
                   for v in cfg.venues if v.enabled}
@@ -67,13 +68,28 @@ def create_app(agent: Agent) -> Starlette:
                              "new_badge_days": cfg.settings.new_badge_days, "version": __version__})
 
     async def api_run(req):
+        if cfg.auth.enabled and req.state.user is None:     # Middleware lässt Gäste nicht durch – doppelt hält besser
+            return JSONResponse({"error": "Nicht angemeldet"}, 401)
         threading.Thread(target=agent.run, daemon=True).start()
         return JSONResponse({"started": True})
+
+    async def api_me(req):
+        u = req.state.user
+        if u is None:                                   # Gast oder Login abgeschaltet
+            return JSONResponse({"user": None, "auth": cfg.auth.enabled})
+        return JSONResponse({"auth": True, "user": {"username": u["username"], "ical_token": u["ical_token"],
+                                                    "share_marks": bool(u["share_marks"])}})
+
+    async def personal_ics(req):
+        """Kalender-Abo mit geheimem Token – Kalender-Apps können sich nicht anmelden."""
+        if not agent.store.user_by_ical_token(req.path_params["token"]):
+            return Response("Unbekannter Kalender-Link", status_code=404)
+        return await ics(req)
 
     async def ics(req):
         lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//KonzertAgent//DE",
                  "X-WR-CALNAME:Konzerte", "X-WR-TIMEZONE:Europe/Zurich", "CALSCALE:GREGORIAN"]
-        stamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         for e in query_events(req):
             d = date.fromisoformat(e["date"])
             lines += ["BEGIN:VEVENT", f"UID:{e['uid']}@konzert-agent", f"DTSTAMP:{stamp}"]
@@ -105,12 +121,24 @@ def create_app(agent: Agent) -> Starlette:
     async def health(req):
         return JSONResponse({"ok": True, "version": __version__})
 
-    return Starlette(routes=[
+    login_page, logout = login_routes(agent.store, cfg.auth)
+
+    async def login_or_home(req):
+        if not cfg.auth.enabled:
+            return RedirectResponse("/", 303)
+        return await login_page(req)
+
+    app = Starlette(routes=[
         Route("/", index),
+        Route("/login", login_or_home, methods=["GET", "POST"]),
+        Route("/logout", logout, methods=["POST"]),
+        Route("/api/me", api_me),
         Route("/api/events", api_events),
         Route("/api/venues", api_venues),
         Route("/api/run", api_run, methods=["POST"]),
         Route("/calendar.ics", ics),
+        Route("/ical/{token}.ics", personal_ics),
         Route("/health", health),
         Mount("/static", StaticFiles(directory=STATIC), name="static"),
     ])
+    return AuthMiddleware(app, agent.store, cfg.auth, cfg.settings.base_url)

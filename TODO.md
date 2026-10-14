@@ -11,18 +11,20 @@
   - [x] Manuelle Korrektur falscher Zuordnungen (`artists.overrides` / `artists.titles` in config.yaml)
 - [x] 3. Oberfläche: Genre-Filter, Popularitäts-Badge, Sortierung nach Popularität;
          Genre/Popularität auch im iCal-Abo (`?genre=…&pop=…`) (v1.3.0)
-- [ ] 4. Login (auch von ausserhalb des Heimnetzes) – **alles hinter Login**, nur die persönlichen
-         iCal-Links funktionieren ohne (geheimer Token)
-  - [ ] 4a. Login: Benutzer per Befehl anlegen, Login-Seite, Logout, Sperre nach Fehlversuchen,
-            `/api/run` nur mit Login
+- [ ] 4. Login (auch von ausserhalb des Heimnetzes) – Gäste sehen den Kalender nur lesend, alle
+         Benutzer-Funktionen hinter Login; persönliche iCal-Links funktionieren ohne (geheimer Token)
+  - [x] 4a. Login: Benutzer per Befehl anlegen, Login-Seite, Logout, Sperre nach Fehlversuchen,
+            `/api/run` nur mit Login; iCal-Abo über persönlichen Token-Link (v1.5.0)
+  - [x] Gäste dürfen den Kalender ansehen (nur lesen), «Anmelden»-Knopf schaltet Funktionen frei;
+        `auth.guests: false` = alles hinter Login (v1.6.0)
   - [ ] 4b. Konzerte markieren pro Benutzer: «Interessiert» / «Gehe hin»
     - [ ] Ticket-Status: «Ja, selbst gekauft» / «Ja, jemand anderes hat sie» / «Noch nicht»
   - [ ] 4c. Eigene Unterseite pro Benutzer: Dashboard mit allen markierten Konzerten
             (anstehend, Tickets fehlen noch, vergangene)
   - [ ] 4d. Persönlicher iCal-Link mit den markierten Konzerten (Status im Titel/Beschreibung),
             Link erneuerbar
-  - [ ] Offen: Zugang von aussen (Cloudflare Tunnel / Tailscale Funnel / Reverse Proxy)?
-  - [ ] Offen: Sehen Benutzer gegenseitig, wer an ein Konzert geht?
+  - Zugang von aussen: eigene Domain über Cloudflare → nginx-Reverse-Proxy (noch nicht aktiviert)
+  - Gegenseitig sehen, wer hingeht: pro Benutzer ein-/ausschaltbar (Opt-in)
 - [ ] 5. Optional: Bands folgen → Telegram-Meldung bei neuer Show
 
 ## Weitere Locations

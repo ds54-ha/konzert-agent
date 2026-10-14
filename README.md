@@ -23,6 +23,44 @@ Testen mit:
 docker compose exec konzert-agent python -m konzert_agent test-notify
 ```
 
+## Login
+
+Ohne Anmeldung kann man den Kalender **nur ansehen** (inkl. allgemeinem iCal-Abo). Mit dem Knopf
+**Anmelden** kommen die Funktionen für Benutzer dazu – z.B. «Jetzt prüfen» (alle Locations neu einlesen)
+und der persönliche Kalender-Link. Soll die Seite ganz hinter dem Login sein: `auth.guests: false`.
+
+Benutzer werden nur per Befehl angelegt (keine Registrierung):
+
+```bash
+docker compose exec konzert-agent python -m konzert_agent user add anna     # fragt nach dem Passwort
+docker compose exec konzert-agent python -m konzert_agent user list
+```
+
+Weitere: `user passwd <name>` (beendet auch alle Sitzungen), `user disable|enable <name>`,
+`user delete <name>`, `user logout <name>` (alle Sitzungen beenden), `user new-ical <name>`
+(neuer Kalender-Link, der alte wird ungültig). Passwörter: mindestens 10 Zeichen.
+
+Nach 5 Fehlversuchen in 15 Minuten sind der Benutzername und die IP 15 Minuten gesperrt (`auth:` in
+`config.yaml`). Der **iCal-Abo**-Link ist persönlich und funktioniert ohne Passwort (Kalender-Apps können
+sich nicht anmelden) – also nicht weitergeben; bei Bedarf mit `user new-ical` erneuern.
+
+**Hinter nginx / Cloudflare** braucht der Login diese Header, sonst lehnt die Origin-Prüfung das
+Anmelden ab bzw. das Cookie ist nicht als `Secure` markiert:
+
+```nginx
+location / {
+    proxy_pass http://<homelab>:9099;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;   # bei Cloudflare «Flexible»: https fest eintragen
+    proxy_set_header X-Real-IP $remote_addr;
+}
+```
+
+Dazu in `config.yaml`: `settings.base_url` auf die öffentliche Adresse setzen (z.B.
+`https://konzerte.example.ch`) und hinter Cloudflare `auth.client_ip_header: CF-Connecting-IP`,
+damit die Sperre die echte IP sieht. Den Port 9099 im Heimnetz nicht ins Internet freigeben – nur den
+Proxy. Ohne Login (nur Heimnetz): `auth.enabled: false`.
+
 ## Befehle
 
 | Befehl | Zweck |

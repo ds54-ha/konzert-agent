@@ -8,10 +8,14 @@
     python -m konzert_agent types            # verfügbare Quellentypen
     python -m konzert_agent artists kiff     # erkannte Bands + Genre/Popularität prüfen
     python -m konzert_agent artists --save   # Band-Infos aller Events neu berechnen und speichern
+    python -m konzert_agent user add anna    # Benutzer anlegen (fragt nach dem Passwort)
+    python -m konzert_agent user list        # Benutzer anzeigen; weitere: passwd, disable, enable,
+                                             #   delete, logout (alle Sitzungen beenden), new-ical
 """
 from __future__ import annotations
 
 import argparse
+import getpass
 import logging
 import os
 import sys
@@ -23,9 +27,11 @@ from . import __version__
 from .agent import Agent, event_from_row, load_plugins, passes_filters
 from .artists import ArtistEnricher, ArtistLookup
 from .config import load_config
+from .auth import hash_password, new_token
 from .fetch import Fetcher
 from .models import Event
 from .sources import REGISTRY, create_source
+from .store import Store
 
 log = logging.getLogger("konzert_agent")
 
@@ -104,6 +110,61 @@ def artists_report(agent: Agent, only: list[str], lookup: bool = True, limit: in
         print("Gespeichert." if save else "Nicht gespeichert – mit --save übernehmen.")
 
 
+MIN_PASSWORD = 10
+
+
+def _ask_password(from_stdin: bool) -> str:
+    if from_stdin:
+        pw = sys.stdin.readline().rstrip("\n")
+    else:
+        pw = getpass.getpass("Passwort: ")
+        if pw != getpass.getpass("Passwort wiederholen: "):
+            sys.exit("Passwörter stimmen nicht überein.")
+    if len(pw) < MIN_PASSWORD:
+        sys.exit(f"Passwort zu kurz (mindestens {MIN_PASSWORD} Zeichen).")
+    return pw
+
+
+def user_command(store: Store, a) -> None:
+    if a.action == "list":
+        users = store.users()
+        if not users:
+            print("Noch keine Benutzer. Anlegen mit: python -m konzert_agent user add <name>")
+        for u in users:
+            flags = [f for f, on in (("gesperrt", u["disabled"]), ("teilt Konzerte", u["share_marks"])) if on]
+            print(f"{u['username']:20} angelegt {u['created'][:10]} · zuletzt aktiv {(u['last_seen'] or 'nie')[:16]}"
+                  + (f" · {', '.join(flags)}" if flags else ""))
+        return
+    if not a.name:
+        sys.exit(f"user {a.action}: Benutzername fehlt")
+    if a.action == "add":
+        if store.user_by_name(a.name):
+            sys.exit(f"Benutzer '{a.name}' existiert schon.")
+        store.create_user(a.name, hash_password(_ask_password(a.password_stdin)), new_token())
+        print(f"Benutzer '{a.name}' angelegt.")
+        return
+    user = store.user_by_name(a.name)
+    if not user:
+        sys.exit(f"Benutzer '{a.name}' nicht gefunden.")
+    if a.action == "passwd":
+        store.update_user(user["id"], pw_hash=hash_password(_ask_password(a.password_stdin)))
+        n = store.delete_sessions(user["id"])
+        print(f"Passwort geändert, {n} Sitzung(en) beendet.")
+    elif a.action in ("disable", "enable"):
+        store.update_user(user["id"], disabled=int(a.action == "disable"))
+        if a.action == "disable":
+            store.delete_sessions(user["id"])
+        print(f"Benutzer '{a.name}' {'gesperrt' if a.action == 'disable' else 'freigegeben'}.")
+    elif a.action == "delete":
+        store.delete_user(user["id"])
+        print(f"Benutzer '{a.name}' gelöscht.")
+    elif a.action == "logout":
+        print(f"{store.delete_sessions(user['id'])} Sitzung(en) von '{a.name}' beendet.")
+    elif a.action == "new-ical":
+        store.update_user(user["id"], ical_token=new_token())
+        print("Neuer Kalender-Link erzeugt – alte Abos funktionieren nicht mehr.")
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="konzert_agent")
     p.add_argument("-c", "--config", default=os.environ.get("KONZERT_CONFIG", "config.yaml"))
@@ -120,12 +181,20 @@ def main(argv=None):
     ar.add_argument("--no-lookup", action="store_true", help="nur Namen erkennen, nichts nachschlagen")
     ar.add_argument("--limit", type=int, default=0, help="max. Events pro Location")
     ar.add_argument("--save", action="store_true", help="Ergebnis in die Events übernehmen (z.B. nach Korrekturen)")
+    us = sub.add_parser("user", help="Benutzer verwalten")
+    us.add_argument("action", choices=["add", "list", "passwd", "disable", "enable", "delete", "logout", "new-ical"])
+    us.add_argument("name", nargs="?")
+    us.add_argument("--password-stdin", action="store_true", help="Passwort von stdin lesen (für Skripte)")
     a = p.parse_args(argv)
 
     logging.basicConfig(level=logging.DEBUG if a.verbose else logging.INFO,
                         format="%(asctime)s %(levelname)-7s %(name)s: %(message)s")
     cfg = load_config(a.config)
     load_plugins(cfg.plugins)
+
+    if a.cmd == "user":
+        user_command(Store(cfg.settings.database), a)
+        return
 
     if a.cmd == "types":
         print("\n".join(sorted(REGISTRY)))

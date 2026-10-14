@@ -11,6 +11,16 @@ settings:
   base_url: ${KONZERT_BASE_URL:-}   # z.B. http://homelab.local:8080 – wird in Telegram verlinkt
   user_agent: "KonzertAgent/1.0 (privater Konzert-Notifier)"
 
+# Login – Benutzer anlegen: python -m konzert_agent user add <name>   (siehe README «Login»)
+auth:
+  enabled: true
+  guests: true               # ohne Login: Kalender nur ansehen («Jetzt prüfen» usw. nur angemeldet)
+  session_days: 30           # angemeldet bleiben
+  max_failures: 5            # nach 5 Fehlversuchen …
+  lockout_minutes: 15        # … 15 Minuten Sperre (pro Benutzername und pro IP)
+  secure_cookies: auto       # Secure-Cookie, sobald die Seite über HTTPS aufgerufen wird
+  client_ip_header: ""       # hinter Cloudflare: CF-Connecting-IP (nur setzen, wenn der Proxy ihn setzt!)
+
 notifiers:
   - type: telegram
     enabled: true

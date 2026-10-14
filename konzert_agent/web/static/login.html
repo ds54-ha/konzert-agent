@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Anmelden – Konzertkalender</title>
+<style>
+:root{--bg:#f4f1ea;--panel:#fffdf8;--ink:#16130f;--muted:#6f685d;--line:#e2dccf;--accent:#e2471b;--accent-ink:#fff;--warn:#b3261e}
+@media (prefers-color-scheme: dark){:root{--bg:#121110;--panel:#1b1a18;--ink:#f1ece2;--muted:#9a9286;--line:#2e2b27;--accent:#ff6a3d;--accent-ink:#130c08;--warn:#ff7a6e}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--ink);
+  font-family:Archivo,system-ui,sans-serif;font-size:15px;padding:20px}
+form{width:100%;max-width:360px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:28px}
+h1{margin:0 0 22px;font-size:34px;font-weight:800;letter-spacing:-.03em;line-height:.95}
+h1 span{color:var(--accent)}
+label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:14px 0 6px;font-weight:600}
+input{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--bg);color:inherit;font:inherit}
+input:focus{outline:none;border-color:var(--ink)}
+button{margin-top:22px;width:100%;padding:11px;border:none;border-radius:999px;background:var(--accent);color:var(--accent-ink);
+  font:inherit;font-weight:700;cursor:pointer}
+.error{color:var(--warn);font-size:14px;margin:0 0 6px;min-height:0}
+.error:empty{display:none}
+.back{display:block;text-align:center;margin-top:16px;font-size:13px;color:var(--muted);text-decoration:none}
+.back:hover{color:var(--accent)}
+.hint{font-size:13px;color:var(--muted);margin-top:18px;line-height:1.45}
+code{font-size:12px;word-break:break-all}
+</style>
+</head>
+<body>
+<form method="post" action="/login">
+  <h1>Konzert<span>kalender</span></h1>
+  <p class="error" role="alert">{{error}}</p>
+  <input type="hidden" name="next" value="{{next}}">
+  <label for="u">Benutzername</label>
+  <input id="u" name="username" autocomplete="username" autocapitalize="none" required autofocus>
+  <label for="p">Passwort</label>
+  <input id="p" name="password" type="password" autocomplete="current-password" required>
+  <button type="submit">Anmelden</button>
+  {{hint}}
+  {{back}}
+</form>
+</body>
+</html>
