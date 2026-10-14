@@ -1,0 +1,118 @@
+# Konzert-Agent – Konfiguration
+# ${VAR} wird aus der Umgebung (.env) ersetzt.
+
+settings:
+  database: data/konzerte.db
+  interval_hours: 6            # wie oft alle Locations geprüft werden
+  request_delay: 2.0           # Sekunden Pause zwischen Anfragen an denselben Server
+  respect_robots: true         # robots.txt der Seiten beachten
+  notify_on_first_run: false   # beim Erstimport einer Location NICHT alle Events melden
+  new_badge_days: 7            # wie lange ein Event im Kalender als «neu» markiert ist
+  base_url: ${KONZERT_BASE_URL:-}   # z.B. http://homelab.local:8080 – wird in Telegram verlinkt
+  user_agent: "KonzertAgent/1.0 (privater Konzert-Notifier)"
+
+notifiers:
+  - type: telegram
+    enabled: true
+    token: ${TELEGRAM_BOT_TOKEN}
+    chat_id: ${TELEGRAM_CHAT_ID}
+    silent: false
+
+  # Optional: Home Assistant (Automation mit Webhook-Trigger)
+  - type: webhook
+    enabled: false
+    url: http://homeassistant.local:8123/api/webhook/neue_konzerte
+
+# Eigene Quellen-Dateien (Python), siehe README «Eigene Quelle schreiben»
+plugins: []
+
+# --------------------------------------------------------------------------------------
+# Locations
+#   type: petzi          -> options.organiser = ID aus petzi.ch («Organisiert von»-Link)
+#   type: exil / hallenstadion -> spezifische Scraper
+#   type: jsonld / ical / css  -> generisch, ohne Code (Beispiele unten)
+#   include / exclude    -> Regex auf Titel + Genre-Tags
+# --------------------------------------------------------------------------------------
+venues:
+  # --- Aargau ---
+  - id: kiff
+    name: KiFF
+    city: Aarau
+    type: petzi
+    options: {organiser: 5}
+    exclude: ["Comedy", "buchklub", "Party", "Ü25"]
+
+  - id: royal
+    name: Kulturhaus Royal
+    city: Baden
+    type: petzi
+    options: {organiser: 225}
+
+  - id: werkk
+    name: Werkk Kulturlokal
+    city: Baden
+    type: petzi
+    options: {organiser: 322139}
+
+  - id: piccadilly
+    name: Piccadilly
+    city: Brugg
+    type: petzi
+    options: {organiser: 202}
+
+  # --- Zürich ---
+  - id: bogenf
+    name: Bogen F
+    city: Zürich
+    type: petzi
+    options: {organiser: 136227}
+
+  - id: helsinki
+    name: Helsinki
+    city: Zürich
+    type: petzi
+    options: {organiser: 149}
+
+  - id: exil
+    name: Exil
+    city: Zürich
+    type: exil
+    url: https://exil.club
+    options: {kinds: [live]}       # [live, dj] für auch DJ-Abende
+
+  - id: hallenstadion
+    name: Hallenstadion
+    city: Zürich
+    type: hallenstadion
+    url: https://hallenstadion.ch/events/
+    exclude: ["Swiss Cup", "Super10Kampf", "Eishockey", "Red Bull", "Cavalluna", "Holiday on Ice",
+              "Felix Lobrecht", "Comedy", "Sport"]
+
+  # --- Vorlagen für weitere Locations (enabled: false) ---
+  - id: beispiel_jsonld
+    name: Beispiel (schema.org)
+    city: Zürich
+    type: jsonld
+    url: https://www.beispiel.ch/programm
+    enabled: false
+
+  - id: beispiel_ical
+    name: Beispiel (iCal-Feed)
+    city: Basel
+    type: ical
+    url: https://www.beispiel.ch/events.ics
+    enabled: false
+
+  - id: beispiel_css
+    name: Beispiel (CSS-Selektoren)
+    city: Luzern
+    type: css
+    url: https://www.beispiel.ch/konzerte
+    enabled: false
+    options:
+      item: "article.event"
+      title: "h3"
+      date: ".date"
+      time: ".time"
+      link: "a"
+      tags: ".genre"

@@ -1,0 +1,14 @@
+services:
+  konzert-agent:
+    build: .
+    container_name: konzert-agent
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - 9099:8080
+    volumes:
+      - ./data:/app/data # SQLite-Datenbank bleibt erhalten
+      - ./config.yaml:/app/config.yaml:ro # Locations ändern ohne Rebuild
+      - ./plugins:/app/plugins:ro # eigene Quellen (optional)
+    mem_limit: 256m
+networks: {}

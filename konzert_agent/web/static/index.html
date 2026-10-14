@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Konzertkalender</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f1ea; --panel:#fffdf8; --ink:#16130f; --muted:#6f685d; --line:#e2dccf;
+  --accent:#e2471b; --accent-ink:#fff; --new:#0f7b5f; --warn:#b3261e; --chip:#ece6d9;
+  --shadow:0 1px 0 rgba(0,0,0,.04),0 6px 20px -12px rgba(0,0,0,.25);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121110; --panel:#1b1a18; --ink:#f1ece2; --muted:#9a9286; --line:#2e2b27;
+    --accent:#ff6a3d; --accent-ink:#130c08; --new:#3fcf9f; --warn:#ff7a6e; --chip:#26241f;
+    --shadow:0 1px 0 rgba(255,255,255,.03),0 8px 24px -14px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121110; --panel:#1b1a18; --ink:#f1ece2; --muted:#9a9286; --line:#2e2b27;
+  --accent:#ff6a3d; --accent-ink:#130c08; --new:#3fcf9f; --warn:#ff7a6e; --chip:#26241f;
+  --shadow:0 1px 0 rgba(255,255,255,.03),0 8px 24px -14px rgba(0,0,0,.8);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Archivo,system-ui,sans-serif;font-size:15px}
+a{color:inherit}
+button,input,select{font:inherit;color:inherit}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace}
+
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  padding:28px 28px 18px;border-bottom:2px solid var(--ink)}
+h1{margin:0;font-size:clamp(30px,5vw,54px);font-weight:800;letter-spacing:-.03em;line-height:.9}
+h1 span{color:var(--accent)}
+.sub{color:var(--muted);margin-top:8px;font-size:13px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1.5px solid var(--ink);background:transparent;padding:8px 14px;border-radius:999px;cursor:pointer;
+  font-weight:600;font-size:13px;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{background:var(--ink);color:var(--bg)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn[disabled]{opacity:.5;cursor:wait}
+
+.layout{display:grid;grid-template-columns:270px 1fr;gap:0;min-height:calc(100vh - 120px)}
+aside{border-right:1px solid var(--line);padding:20px 22px;position:sticky;top:0;align-self:start;max-height:100vh;overflow:auto}
+main{padding:20px 28px 60px;min-width:0}
+.group{margin-bottom:22px}
+.label{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin-bottom:8px;font-weight:600}
+input[type=search]{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--panel)}
+input[type=search]:focus{outline:none;border-color:var(--ink)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:none;background:var(--chip);padding:6px 11px;border-radius:999px;cursor:pointer;font-size:13px}
+.chip.on{background:var(--ink);color:var(--bg)}
+.venue{display:flex;align-items:center;gap:9px;padding:6px 4px;border-radius:8px;cursor:pointer;font-size:14px}
+.venue:hover{background:var(--chip)}
+.venue input{accent-color:var(--accent);width:16px;height:16px;margin:0}
+.venue .n{margin-left:auto;color:var(--muted);font-size:12px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--new);flex:none}
+.dot.err{background:var(--warn)} .dot.none{background:var(--line)}
+.venue small{display:block;color:var(--muted);font-size:11px}
+.toggle{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}
+.toggle input{accent-color:var(--accent);width:16px;height:16px}
+.linkish{background:none;border:none;color:var(--muted);text-decoration:underline;cursor:pointer;font-size:12px;padding:0}
+
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.seg{display:inline-flex;border:1.5px solid var(--ink);border-radius:999px;overflow:hidden}
+.seg button{border:none;background:transparent;padding:7px 14px;cursor:pointer;font-weight:600;font-size:13px}
+.seg button.on{background:var(--ink);color:var(--bg)}
+.count{color:var(--muted);font-size:13px}
+
+/* Liste */
+.month-h{font-size:28px;font-weight:800;letter-spacing:-.02em;margin:26px 0 10px;display:flex;align-items:baseline;gap:10px}
+.month-h small{font-size:13px;color:var(--muted);font-weight:500}
+.day{display:grid;grid-template-columns:72px 1fr;gap:14px;padding:14px 0;border-top:1px solid var(--line)}
+.dlabel{line-height:1}
+.dlabel .wd{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.dlabel .dn{font-size:34px;font-weight:800;letter-spacing:-.03em}
+.dlabel.today .dn{color:var(--accent)}
+.evs{display:flex;flex-direction:column;gap:8px}
+.ev{display:flex;gap:12px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  padding:11px 14px;text-decoration:none;box-shadow:var(--shadow);transition:transform .12s}
+.ev:hover{transform:translateX(3px);border-color:var(--ink)}
+.ev .t{font-weight:600;font-size:16px;line-height:1.25}
+.ev .meta{color:var(--muted);font-size:13px;margin-top:3px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.ev .time{font-family:"JetBrains Mono",monospace;font-size:13px;min-width:44px;padding-top:2px;color:var(--muted)}
+.badge{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:2px 7px;border-radius:999px}
+.b-new{background:var(--new);color:var(--panel)} .b-sold{background:var(--warn);color:#fff}
+.b-cxl{border:1px solid var(--warn);color:var(--warn)}
+.ev.cxl .t{text-decoration:line-through;opacity:.6}
+.tag{background:var(--chip);padding:1px 7px;border-radius:6px;font-size:12px}
+
+/* Monat */
+.cal-nav{display:flex;align-items:center;gap:10px}
+.cal-nav h2{margin:0;font-size:24px;font-weight:800;min-width:200px}
+.grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-top:1px solid var(--line);border-left:1px solid var(--line)}
+.grid .wh{padding:8px;font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.cell{min-height:118px;padding:6px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--panel)}
+.cell.out{background:transparent;opacity:.45}
+.cell .num{font-size:13px;font-weight:700;margin-bottom:4px}
+.cell.today .num{color:var(--accent)}
+.pill{display:block;font-size:12px;line-height:1.25;padding:3px 6px;margin-bottom:3px;border-radius:6px;background:var(--chip);
+  text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:3px solid var(--vc,var(--accent))}
+.pill:hover{background:var(--ink);color:var(--bg)}
+.more{font-size:11px;color:var(--muted)}
+
+.empty{padding:60px 0;text-align:center;color:var(--muted)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;
+  border-radius:999px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+.filters-btn{display:none}
+
+@media (max-width:860px){
+  header{padding:20px 16px 14px}
+  .layout{grid-template-columns:1fr}
+  aside{position:static;max-height:none;border-right:none;border-bottom:1px solid var(--line);padding:16px;display:none}
+  aside.open{display:block}
+  main{padding:16px 16px 60px}
+  .filters-btn{display:inline-flex}
+  .day{grid-template-columns:52px 1fr;gap:10px}
+  .dlabel .dn{font-size:26px}
+  .cell{min-height:64px;padding:3px}
+  .pill{font-size:0;height:7px;padding:0;margin:2px 0;border-left:none;background:var(--vc,var(--accent))}
+  .more{font-size:10px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Konzert<span>kalender</span></h1>
+    <div class="sub" id="status">lade …</div>
+  </div>
+  <div class="actions">
+    <button class="btn filters-btn" id="filtersBtn">Filter</button>
+    <a class="btn" id="icsLink" href="calendar.ics" title="In Kalender-App abonnieren (aktuelle Filter)">📅 iCal-Abo</a>
+    <button class="btn primary" id="runBtn">Jetzt prüfen</button>
+  </div>
+</header>
+
+<div class="layout">
+  <aside id="aside">
+    <div class="group">
+      <div class="label">Suche</div>
+      <input type="search" id="q" placeholder="Band, Genre …">
+    </div>
+    <div class="group">
+      <div class="label">Zeitraum</div>
+      <div class="chips" id="range"></div>
+    </div>
+    <div class="group">
+      <div class="label">Stadt</div>
+      <div class="chips" id="cities"></div>
+    </div>
+    <div class="group">
+      <label class="toggle"><input type="checkbox" id="onlyNew"> Nur neu angekündigt</label>
+    </div>
+    <div class="group">
+      <div class="label" style="display:flex;justify-content:space-between">Locations
+        <span><button class="linkish" id="allV">alle</button> · <button class="linkish" id="noneV">keine</button></span></div>
+      <div id="venues"></div>
+    </div>
+  </aside>
+
+  <main>
+    <div class="toolbar">
+      <div class="seg"><button data-view="list" class="on">Liste</button><button data-view="month">Monat</button></div>
+      <span class="count" id="count"></span>
+    </div>
+    <div id="view"></div>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const WD = ["So","Mo","Di","Mi","Do","Fr","Sa"];
+const MONTHS = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+const PALETTE = ["#e2471b","#1d6fd8","#0f7b5f","#b0399b","#c58a00","#5b4bd6","#d0365a","#2a8f8f","#7a6a3a","#4d7c0f"];
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const parse = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); };
+const todayIso = iso(new Date());
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("ka:"+k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("ka:"+k, JSON.stringify(v)); } catch {} }
+};
+
+let venues = [], events = [], meta = {};
+const state = {
+  q: "", range: store.get("range", "all"), city: store.get("city", ""), onlyNew: false,
+  hidden: new Set(store.get("hidden", [])), view: store.get("view", "list"), cal: new Date()
+};
+state.cal.setDate(1);
+
+const RANGES = [["all","Alle"],["week","7 Tage"],["month","30 Tage"],["weekend","Wochenende"]];
+
+function venueColor(id) { const i = venues.findIndex(v => v.id === id); return PALETTE[(i < 0 ? 0 : i) % PALETTE.length]; }
+
+function rangeBounds() {
+  const t = new Date(); t.setHours(0,0,0,0);
+  if (state.range === "week") return [t, new Date(+t + 7*864e5)];
+  if (state.range === "month") return [t, new Date(+t + 30*864e5)];
+  if (state.range === "weekend") {
+    const dow = t.getDay();
+    const start = new Date(t);
+    if (dow >= 1 && dow <= 5) start.setDate(t.getDate() + (5 - dow));   // nächster Freitag
+    const sun = new Date(start); sun.setDate(start.getDate() + ((7 - start.getDay()) % 7));
+    return [start, sun];
+  }
+  return [t, null];
+}
+
+function visible() {
+  const [a, b] = rangeBounds();
+  const q = state.q.trim().toLowerCase();
+  const nd = meta.new_badge_days || 7;
+  return events.filter(e => {
+    if (state.hidden.has(e.venue_id)) return false;
+    if (state.city && e.city !== state.city) return false;
+    if (state.onlyNew && !e.is_new) return false;
+    const d = parse(e.date), end = e.end_date ? parse(e.end_date) : d;
+    if (state.view === "list" || state.range !== "all") {
+      if (end < a) return false;
+      if (b && d > b) return false;
+    }
+    if (q && !(e.title + " " + e.tags.join(" ") + " " + e.venue).toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+function ago(ts) {
+  if (!ts) return "nie";
+  const m = Math.round((Date.now() - new Date(ts)) / 60000);
+  if (m < 1) return "gerade eben";
+  if (m < 60) return `vor ${m} Min.`;
+  if (m < 48*60) return `vor ${Math.round(m/60)} Std.`;
+  return `vor ${Math.round(m/1440)} Tagen`;
+}
+
+function renderSidebar() {
+  $("#range").innerHTML = RANGES.map(([k,l]) => `<button class="chip ${state.range===k?"on":""}" data-k="${k}">${l}</button>`).join("");
+  const cities = [...new Set(venues.map(v => v.city).filter(Boolean))].sort();
+  $("#cities").innerHTML = [["","Alle"], ...cities.map(c => [c,c])]
+    .map(([k,l]) => `<button class="chip ${state.city===k?"on":""}" data-k="${esc(k)}">${esc(l)}</button>`).join("");
+  $("#venues").innerHTML = venues.map(v => {
+    const run = v.run;
+    const cls = !run ? "none" : run.last_error ? "err" : "";
+    const tip = !run ? "noch nicht geprüft" : run.last_error ? `Fehler: ${run.last_error}` : `geprüft ${ago(run.last_run)}`;
+    return `<label class="venue" title="${esc(tip)}">
+      <input type="checkbox" data-v="${esc(v.id)}" ${state.hidden.has(v.id)?"":"checked"}>
+      <span class="dot ${cls}" style="${cls?"":"background:"+venueColor(v.id)}"></span>
+      <span>${esc(v.name)}<small>${esc(v.city)}${run && run.last_error ? " · ⚠ Fehler" : ""}</small></span>
+      <span class="n">${v.upcoming}</span></label>`;
+  }).join("");
+}
+
+function evCard(e) {
+  const badges = [
+    e.is_new ? `<span class="badge b-new">neu</span>` : "",
+    e.sold_out ? `<span class="badge b-sold">ausverkauft</span>` : "",
+    e.cancelled ? `<span class="badge b-cxl">abgesagt</span>` : "",
+  ].join("");
+  const tags = e.tags.slice(0,3).map(t => `<span class="tag">${esc(t)}</span>`).join("");
+  const range = e.end_date ? ` · bis ${parse(e.end_date).toLocaleDateString("de-CH",{day:"numeric",month:"short"})}` : "";
+  const price = e.extra && e.extra.price ? ` · ${esc(e.extra.price)}` : "";
+  return `<a class="ev ${e.cancelled?"cxl":""}" href="${esc(e.url)}" target="_blank" rel="noopener" style="border-left:4px solid ${venueColor(e.venue_id)}">
+    <span class="time">${esc(e.time || "")}</span>
+    <span><div class="t">${esc(e.title)}</div>
+    <div class="meta"><span>${esc(e.venue)}${e.city ? ", "+esc(e.city) : ""}${range}${price}</span>${badges}${tags}</div></span></a>`;
+}
+
+function renderList(list) {
+  if (!list.length) return `<div class="empty">Keine Konzerte für diese Filter.</div>`;
+  const byDay = new Map();
+  list.forEach(e => { const k = e.date < todayIso && e.end_date ? todayIso : e.date; (byDay.get(k) || byDay.set(k, []).get(k)).push(e); });
+  let html = "", lastMonth = "";
+  [...byDay.keys()].sort().forEach(k => {
+    const d = parse(k), mk = k.slice(0,7);
+    if (mk !== lastMonth) {
+      const n = list.filter(e => e.date.slice(0,7) === mk).length;
+      html += `<div class="month-h">${MONTHS[d.getMonth()]} <small>${d.getFullYear()} · ${n}</small></div>`;
+      lastMonth = mk;
+    }
+    html += `<div class="day"><div class="dlabel ${k===todayIso?"today":""}"><div class="wd">${k===todayIso?"heute":WD[d.getDay()]}</div><div class="dn">${d.getDate()}</div></div>
+      <div class="evs">${byDay.get(k).map(evCard).join("")}</div></div>`;
+  });
+  return html;
+}
+
+function renderMonth(list) {
+  const c = state.cal, y = c.getFullYear(), m = c.getMonth();
+  const first = new Date(y, m, 1), offset = (first.getDay() + 6) % 7;
+  const start = new Date(y, m, 1 - offset);
+  const byDay = new Map();
+  list.forEach(e => {
+    let d = parse(e.date); const end = e.end_date ? parse(e.end_date) : d;
+    for (; d <= end; d = new Date(+d + 864e5)) { const k = iso(d); (byDay.get(k) || byDay.set(k, []).get(k)).push(e); }
+  });
+  let cells = ["Mo","Di","Mi","Do","Fr","Sa","So"].map(w => `<div class="wh">${w}</div>`).join("");
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    if (i >= 35 && d.getMonth() !== m) break;
+    const k = iso(d), evs = byDay.get(k) || [];
+    const shown = evs.slice(0, 4).map(e => `<a class="pill" style="--vc:${venueColor(e.venue_id)}" href="${esc(e.url)}" target="_blank" rel="noopener"
+      title="${esc((e.time ? e.time+" · " : "") + e.title + " – " + e.venue)}">${e.is_new?"● ":""}${esc(e.title)}</a>`).join("");
+    const more = evs.length > 4 ? `<div class="more">+${evs.length - 4} weitere</div>` : "";
+    cells += `<div class="cell ${d.getMonth()!==m?"out":""} ${k===todayIso?"today":""}"><div class="num">${d.getDate()}</div>${shown}${more}</div>`;
+  }
+  return `<div class="toolbar"><div class="cal-nav"><button class="btn" id="prevM">←</button>
+    <h2>${MONTHS[m]} ${y}</h2><button class="btn" id="nextM">→</button><button class="linkish" id="todayM">heute</button></div></div>
+    <div class="grid">${cells}</div>`;
+}
+
+function render() {
+  const list = visible();
+  $("#count").textContent = `${list.length} Event${list.length===1?"":"s"}`;
+  document.querySelectorAll(".seg button").forEach(b => b.classList.toggle("on", b.dataset.view === state.view));
+  $("#view").innerHTML = state.view === "month" ? renderMonth(list) : renderList(list);
+  if (state.view === "month") {
+    $("#prevM").onclick = () => { state.cal.setMonth(state.cal.getMonth() - 1); render(); };
+    $("#nextM").onclick = () => { state.cal.setMonth(state.cal.getMonth() + 1); render(); };
+    $("#todayM").onclick = () => { state.cal = new Date(); state.cal.setDate(1); render(); };
+  }
+  const shownVenues = venues.filter(v => !state.hidden.has(v.id) && (!state.city || v.city === state.city)).map(v => v.id);
+  const p = new URLSearchParams();
+  if (shownVenues.length !== venues.length) p.set("venues", shownVenues.join(","));
+  if (state.q) p.set("q", state.q);
+  $("#icsLink").href = "calendar.ics" + (p.toString() ? "?" + p : "");
+}
+
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2600); }
+
+async function load() {
+  const [v, e] = await Promise.all([fetch("api/venues").then(r => r.json()), fetch("api/events").then(r => r.json())]);
+  venues = v.venues; meta = v; events = e;
+  const lastRun = venues.map(x => x.run && x.run.last_run).filter(Boolean).sort().pop();
+  const errs = venues.filter(x => x.run && x.run.last_error).length;
+  $("#status").textContent = `${events.length} kommende Events · ${venues.length} Locations · zuletzt geprüft ${ago(lastRun)}`
+    + (errs ? ` · ${errs} mit Fehler` : "");
+  renderSidebar(); render();
+}
+
+// Ereignisse
+$("#q").addEventListener("input", e => { state.q = e.target.value; render(); });
+$("#range").addEventListener("click", e => { const k = e.target.dataset.k; if (k === undefined) return; state.range = k; store.set("range", k); renderSidebar(); render(); });
+$("#cities").addEventListener("click", e => { const k = e.target.dataset.k; if (k === undefined) return; state.city = k; store.set("city", k); renderSidebar(); render(); });
+$("#onlyNew").addEventListener("change", e => { state.onlyNew = e.target.checked; render(); });
+$("#venues").addEventListener("change", e => {
+  const id = e.target.dataset.v; if (!id) return;
+  e.target.checked ? state.hidden.delete(id) : state.hidden.add(id);
+  store.set("hidden", [...state.hidden]); render();
+});
+$("#allV").onclick = () => { state.hidden.clear(); store.set("hidden", []); renderSidebar(); render(); };
+$("#noneV").onclick = () => { venues.forEach(v => state.hidden.add(v.id)); store.set("hidden", [...state.hidden]); renderSidebar(); render(); };
+document.querySelectorAll(".seg button").forEach(b => b.onclick = () => { state.view = b.dataset.view; store.set("view", state.view); render(); });
+$("#filtersBtn").onclick = () => $("#aside").classList.toggle("open");
+$("#icsLink").addEventListener("click", ev => {
+  ev.preventDefault();
+  const url = new URL($("#icsLink").getAttribute("href"), location.href).href;
+  (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject())
+    .then(() => toast("iCal-Link kopiert – in der Kalender-App als Abo hinzufügen"))
+    .catch(() => window.open(url));
+});
+$("#runBtn").onclick = async () => {
+  const b = $("#runBtn"); b.disabled = true; b.textContent = "prüfe …";
+  await fetch("api/run", { method: "POST" });
+  toast("Prüfung gestartet – dauert je nach Anzahl Locations ein paar Minuten");
+  setTimeout(async () => { await load(); b.disabled = false; b.textContent = "Jetzt prüfen"; }, 20000);
+};
+
+load().catch(err => { $("#status").textContent = "Fehler beim Laden: " + err; });
+setInterval(load, 10 * 60 * 1000);
+</script>
+</body>
+</html>
