@@ -78,12 +78,16 @@ class TelegramNotifier(Notifier):
                     tags = f" <i>({html.escape(', '.join(ev.tags[:3]))})</i>" if ev.tags else ""
                     lines.append(f"• {fmt_date(ev)} · <a href=\"{html.escape(ev.url)}\">{html.escape(ev.title)}</a>"
                                  f"{tags}{flags}")
-        if cancelled:
+        for heading, evs in (("❌ <b>Abgesagt</b>", [e for e in cancelled if not e.moved]),
+                             ("↪️ <b>Verschoben</b>", [e for e in cancelled if e.moved])):
+            if not evs:
+                continue
             lines.append("")
-            lines.append("❌ <b>Abgesagt</b>")
-            for ev in cancelled:
+            lines.append(heading)
+            for ev in evs:
+                note = f" → {html.escape(ev.moved_note)}" if ev.moved and ev.moved_note else ""
                 lines.append(f"• {fmt_date(ev)} · {html.escape(self.venue_names.get(ev.venue_id, ev.venue_id))}: "
-                             f"{html.escape(ev.title)}")
+                             f"{html.escape(ev.title)}{note}")
         if self.base_url:
             lines.append("")
             lines.append(f"<a href=\"{html.escape(self.base_url)}\">📅 Zum Konzertkalender</a>")

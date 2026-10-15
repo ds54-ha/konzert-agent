@@ -26,12 +26,16 @@ EXTRA_KEYS = ("artists", "genres", "genres_source", "styles", "popularity", "pop
 
 
 class ArtistEnricher:
-    def __init__(self, lookup: ArtistLookup, title_overrides: dict | None = None):
+    def __init__(self, lookup: ArtistLookup, title_overrides: dict | None = None, event_overrides: dict | None = None):
         self.lookup = lookup
-        # config: artists.titles – Regex auf den Titel -> Liste der Bands ([] = keine Bands)
+        # config: artists.titles – Regex auf den Titel -> Liste der Bands ([] = keine Bands); gilt für alle Events
         self.titles = [(re.compile(k, re.I), v or []) for k, v in (title_overrides or {}).items()]
+        # config: artists.events – «<location> <JJJJ-MM-TT>» -> Liste der Bands; gilt nur für dieses eine Event
+        self.events = {tuple(k.split()): v or [] for k, v in (event_overrides or {}).items()}
 
     def names_for(self, ev: Event) -> tuple[list[ArtistName], str | None]:
+        if (names := self.events.get((ev.venue_id, ev.date.isoformat()))) is not None:
+            return [ArtistName(n) for n in names], None if names else "manuell"
         for rx, names in self.titles:
             if rx.search(ev.title):
                 return [ArtistName(n) for n in names], None if names else "manuell"

@@ -41,6 +41,8 @@ VOLKSHAUS = """<div class="month-title"><span>OKTOBER 2026</span></div>
 <div class="event-item" data-event-id="291"><div><span>FR</span><span>16.10.</span></div><div><span>RICARDO MONTANER</span>
 <span>KONZERT 21:00 Uhr</span><div><span>THEATERSAAL</span><a href="https://shop.tilater.com/x "><span>Ticket</span></a>
 <a href="https://rollinglive.ch/"><span>Veranstalter</span></a><span>AUSVERKAUFT</span></div></div></div>
+<div class="event-item" data-event-id="350"><div><span>SA</span><span>24.10.</span></div><div><span>YASMIN LEVY</span>
+<span>KONZERT 20:00 Uhr</span><div><span>THEATERSAAL</span><span>VERSCHOBEN</span></div></div></div>
 <div class="event-item" data-event-id="349"><div><span>DO</span><span>15.10.</span></div><div><span>FRANCESCO DE CARLO</span>
 <span>COMEDY 19:40 Uhr</span><div><span>WEISSER SAAL</span></div></div></div>
 <div class="month-title"><span>JANUAR 2027</span></div>
@@ -50,7 +52,8 @@ VOLKSHAUS = """<div class="month-title"><span>OKTOBER 2026</span></div>
 KOMPLEX = [
     {"id": "a1", "date": "2099-10-16T20:00", "artist": "SIX60", "support_acts": ["luca!"], "genre": "Rock", "status": "Ausverkauft"},
     {"id": "a2", "date": "2099-10-17T20:00", "artist": "DÚ MAROC", "genre": "Hip-Hop, Rap", "status": "Abgesagt"},
-    {"id": "a3", "date": "2099-10-31T20:00", "artist": "BETONTOD", "genre": "Punk", "status": "Verlegt"},
+    {"id": "a3", "date": "2099-10-31T20:00", "artist": "BETONTOD", "genre": "Punk", "status": "Verlegt",
+     "postponed_info": "Die Show wurde verlegt und findet neu im Dynamo statt."},
     {"id": "a4", "date": "2099-11-01T20:00", "artist": "Entwurf", "is_draft": True},
     {"id": "a5", "date": "2020-01-01T20:00", "artist": "Längst vorbei"},
 ]
@@ -61,12 +64,20 @@ THEHALL = """<select><option value="">Alle</option><option value=".rock">Rock</o
 <span class="c-tile__text">11. November 2026</span><h5 class="c-tile__title">Amon Amarth</h5></a></div>
 <div class="c-tile c-tile--events all"><a href="/de/eventkalender/2026/mustafa-sandal/">
 <span class="c-tile__text">28. November 2026</span><h5 class="c-tile__title">Mustafa Sandal</h5></a>
-<p>Die Show wurde in eine andere Location verlegt.</p></div>"""
+<p>Die Show wurde in eine andere Location verlegt. Details beim Veranstalter.</p></div>
+<div class="c-tile c-tile--events all"><a href="/de/eventkalender/2026/nena/">
+<span class="c-tile__text">17. Oktober 2026</span><h5 class="c-tile__title">Nena</h5></a>
+<p>Die Show wurde auf dieses Datum verschoben.</p></div>
+<div class="c-tile c-tile--events all"><a href="/de/eventkalender/2026/zimmer/">
+<span class="c-tile__text">03. Dezember 2026</span><h5 class="c-tile__title">Zimmer &amp; Williams</h5></a>
+<p>Leider muss die Show abgesagt werden.</p></div>"""
 
 MOODS = {"props": {"pageProps": {"fallback": {"allEvents": [
     {"isVisible": True, "concertId": "114260", "eventCategory": "Moods_Konzert", "eventDate": "2026-10-15",
      "name": "BaBa ZuLa", "slug": "baba-zula-2026-10-15", "timeStart": "20:30", "ticketPrice": "42",
      "genres": [{"label": "Global Sounds"}], "isSoldOut": True, "isCancelled": False},
+    {"isVisible": True, "concertId": "1", "eventCategory": "Moods_Konzert", "eventDate": "2026-11-01",
+     "name": "Später", "slug": "spaeter", "isPostponed": True},
     {"isVisible": True, "concertId": "118469", "eventCategory": "Moods_Afterparty", "eventDate": "2026-10-15",
      "name": "Yunus Findus", "slug": "yunus-findus-2026-10-15", "timeStart": "22:00"},
 ]}}}}
@@ -185,15 +196,19 @@ class VenueTests(unittest.TestCase):
 
     def test_volkshaus_year_from_month_heading(self):
         evs = src("volkshaus", "https://www.volkshaus.ch/veranstaltungen").parse(VOLKSHAUS)
-        self.assertEqual([(e.title, e.date, e.time, e.sold_out) for e in evs],
-                         [("RICARDO MONTANER", date(2026, 10, 16), "21:00", True), ("BASCHI", date(2027, 1, 9), "20:00", False)])
+        self.assertEqual([(e.title, e.date, e.time, e.sold_out, e.moved) for e in evs],
+                         [("RICARDO MONTANER", date(2026, 10, 16), "21:00", True, False),
+                          ("YASMIN LEVY", date(2026, 10, 24), "20:00", False, True),
+                          ("BASCHI", date(2027, 1, 9), "20:00", False, False)])
         self.assertEqual((evs[0].native_id, evs[0].url, evs[0].tags), ("291", "https://shop.tilater.com/x", ["Konzert"]))
-        self.assertEqual(len(src("volkshaus", "", kinds=[]).parse(VOLKSHAUS)), 3)
+        self.assertEqual(len(src("volkshaus", "", kinds=[]).parse(VOLKSHAUS)), 4)
 
     def test_komplex457_api(self):
         evs = src("komplex457", "").parse(json.dumps(KOMPLEX))
-        self.assertEqual([(e.title, e.sold_out, e.cancelled) for e in evs],
-                         [("SIX60 & Support: luca!", True, False), ("DÚ MAROC", False, True), ("BETONTOD", False, True)])
+        self.assertEqual([(e.title, e.sold_out, e.cancelled, e.moved) for e in evs],
+                         [("SIX60 & Support: luca!", True, False, False), ("DÚ MAROC", False, True, False),
+                          ("BETONTOD", False, False, True)])
+        self.assertEqual(evs[2].moved_note, "Die Show wurde verlegt und findet neu im Dynamo statt")
         self.assertEqual((evs[0].time, evs[0].url), ("20:00", "https://komplex-457.ch/EventDetail?id=a1"))
         self.assertEqual(evs[1].tags, ["Hip-Hop", "Rap"])
 
@@ -204,17 +219,21 @@ class VenueTests(unittest.TestCase):
 
     def test_thehall_genres_and_status(self):
         evs = src("thehall", "https://www.thehall.ch/de/eventkalender/").parse(THEHALL)
-        self.assertEqual([(e.title, e.date, e.tags, e.cancelled) for e in evs],
-                         [("Amon Amarth", date(2026, 11, 11), ["Rock"], False), ("Mustafa Sandal", date(2026, 11, 28), [], True)])
+        self.assertEqual([(e.title, e.tags, e.cancelled, e.moved, e.moved_note) for e in evs],
+                         [("Amon Amarth", ["Rock"], False, False, ""),
+                          ("Mustafa Sandal", [], False, True, "Die Show wurde in eine andere Location verlegt"),
+                          ("Nena", [], False, False, ""),                       # neues Datum ist dieses hier
+                          ("Zimmer & Williams", [], True, False, "")])
         self.assertEqual(evs[0].url, "https://www.thehall.ch/de/eventkalender/2026/amon-amarth/")
 
     def test_moods_next_data(self):
         html = f'<script id="__NEXT_DATA__" type="application/json">{json.dumps(MOODS)}</script>'
         evs = src("moods", "https://www.moods.ch/").parse(html)
-        self.assertEqual([(e.title, e.time, e.sold_out, e.tags, e.extra) for e in evs],
-                         [("BaBa ZuLa", "20:30", True, ["Global Sounds"], {"price": "CHF 42"})])
+        self.assertEqual([(e.title, e.time, e.sold_out, e.tags, e.extra) for e in evs][0],
+                         ("BaBa ZuLa", "20:30", True, ["Global Sounds"], {"price": "CHF 42"}))
+        self.assertEqual([(e.title, e.moved) for e in evs], [("BaBa ZuLa", False), ("Später", True)])
         self.assertEqual(evs[0].url, "https://www.moods.ch/baba-zula-2026-10-15")
-        self.assertEqual(len(src("moods", "", kinds=["Konzert", "Afterparty"]).parse(html)), 2)
+        self.assertEqual(len(src("moods", "", kinds=["Konzert", "Afterparty"]).parse(html)), 3)
 
     def test_plaza_status_in_title_and_old_entries(self):
         evs = src("plaza", "https://www.plaza-zurich.ch/program/liveshows/").parse(PLAZA)

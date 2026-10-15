@@ -66,6 +66,8 @@ class PetziSource(Source):
                 end_date=dates[1],
                 url=urljoin(BASE, a["href"]),
                 cancelled=bool(re.search(r"abgesagt|cancel|annul", title, re.I)),
+                moved=bool(re.search(r"verschoben|verlegt|postponed|report[ée]", title, re.I))
+                and not re.search(r"abgesagt|cancel|annul", title, re.I),
             )
             events.setdefault(ev.native_id, ev)
         return list(events.values())

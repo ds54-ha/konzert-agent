@@ -160,6 +160,9 @@ Gezählt werden nur sichere Treffer. Antwortet eine Datenbank nicht, wird das Ev
 erneut nachgeschlagen. Kurze oder häufige Namen («Elin», «Sports») werden oft der falschen
 Band zugeordnet – mit `artists <location>` prüfen und in `config.yaml` unter `artists:` korrigieren
 (`overrides` pro Bandname, `titles` für Titel ohne echte Bandnamen), danach `artists --save`.
+Nennt eine Location die Vorband nicht (z.B. Volkshaus: nur «FEINE SAHNE FISCHFILET»), das Line-up für genau dieses
+Event unter `artists.events` eintragen – `"volkshaus 2027-02-18": [Feine Sahne Fischfilet, Dritte Wahl]`. Anders als
+`titles` trifft das keine späteren Shows mit gleichem Titel; danach finden Suche und «Folgen» auch die Vorband.
 
 ## Bands folgen
 
@@ -236,7 +239,8 @@ erkennbarer User-Agent). Diese Anfragen laufen darum ohne robots-Prüfung, aber 
 - **Nordportal** lädt sein Programm per JavaScript aus einer WordPress-API (`npwp.kailua.ch`); der
   Scraper fragt dieselbe API ab. Standard: nur Liveshows (`kinds` in config.yaml).
 - **Komplex 457** ist eine App, die ihr Programm aus einer öffentlichen Base44-API lädt (`base44.app`); der
-  Scraper fragt dieselbe API ab. Status «Verlegt» (meist in eine grössere Halle) zählt als abgesagt.
+  Scraper fragt dieselbe API ab. Status «Verlegt» (meist in eine grössere Halle) zählt als verschoben, mit dem
+  Hinweis der Location («… findet neu im Dynamo statt»).
 - **Moods** liefert das ganze Programm als JSON in der Seite mit (Next.js `__NEXT_DATA__`), inkl. Genres,
   ausverkauft/abgesagt. Standard: nur Konzerte (`kinds`).
 - **Volkshaus**, **Kaufleuten**, **Salzhaus**: gemischte Programme – `kinds` in config.yaml wählt die Sparten
@@ -246,6 +250,12 @@ erkennbarer User-Agent). Diese Anfragen laufen darum ohne robots-Prüfung, aber 
   über Eventfrog und listet sie nicht selbst.
 - Neue PETZI-Locations brauchen beim ersten Lauf etwas Zeit: Für jedes neue Event wird die Detailseite
   (Genre, Beginn) geladen, mit 2 s Pause pro Anfrage an petzi.ch.
+- **Verschoben / verlegt** ist ein eigener Status, nicht «abgesagt»: in der Liste durchgestrichen wie eine Absage,
+  aber mit Badge «verschoben» und – wenn die Location es sagt – wohin bzw. auf wann («→ … neu im Dynamo»). Im
+  iCal-Abo «(VERSCHOBEN)» mit `STATUS:TENTATIVE` statt `CANCELLED`, in Telegram eigener Abschnitt «↪️ Verschoben»
+  (auch für markierte Konzerte). Erkannt aus Status-Feldern (Komplex 457, Moods, The Hall, schema.org) oder Wörtern
+  im Titel («VERSCHOBEN!», «– verlegt ins Dynamo»). «Neues Datum» bzw. «auf dieses Datum verschoben» heisst: das
+  angezeigte Datum ist das neue – das Event gilt dann nicht als verschoben.
 - Wenn `./data` nicht beschreibbar ist (Container läuft als UID 1000): `sudo chown 1000 data`.
 
 ## Tests

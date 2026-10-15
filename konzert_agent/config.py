@@ -54,7 +54,8 @@ class ArtistSettings:
     refresh_days: int = 30          # gespeicherte Band-Infos so lange wiederverwenden
     backfill_per_run: int = 40      # pro Lauf so viele bestehende Events ohne Band-Infos nachholen
     overrides: dict = field(default_factory=dict)   # Name -> none | {mbid, deezer, genres}
-    titles: dict = field(default_factory=dict)      # Titel-Regex -> [Bands] ([] = keine Bands)
+    titles: dict = field(default_factory=dict)      # Titel-Regex -> [Bands] ([] = keine Bands), für alle Events
+    events: dict = field(default_factory=dict)      # «<location> <JJJJ-MM-TT>» -> [Bands], nur dieses Event
 
 
 @dataclass

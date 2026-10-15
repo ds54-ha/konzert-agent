@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS events (
     tags       TEXT DEFAULT '[]',
     sold_out   INTEGER DEFAULT 0,
     cancelled  INTEGER DEFAULT 0,
+    moved      INTEGER DEFAULT 0,      -- verschoben/verlegt (statt abgesagt)
+    moved_note TEXT,                   -- wohin bzw. auf wann, falls die Location es sagt
     extra      TEXT DEFAULT '{}',
     first_seen TEXT NOT NULL,
     last_seen  TEXT NOT NULL,
@@ -97,6 +99,8 @@ def _now() -> str:
 
 
 class Store:
+    ADDED_COLUMNS = [("moved", "INTEGER DEFAULT 0"), ("moved_note", "TEXT")]   # (v1.17.0)
+
     def __init__(self, path: str):
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.db = sqlite3.connect(path, check_same_thread=False)
@@ -105,6 +109,11 @@ class Store:
         with self.lock:
             self.db.execute("PRAGMA foreign_keys = ON")
             self.db.executescript(SCHEMA)
+            cols = {r["name"] for r in self.db.execute("PRAGMA table_info(events)")}
+            for col, decl in self.ADDED_COLUMNS:          # ältere Datenbanken nachrüsten
+                if col not in cols:
+                    self.db.execute(f"ALTER TABLE events ADD COLUMN {col} {decl}")
+            self.db.commit()
 
     # ------------------------------------------------------------ Schreiben
 
@@ -113,29 +122,33 @@ class Store:
             return self.db.execute("SELECT 1 FROM events WHERE venue_id=? LIMIT 1", (venue_id,)).fetchone() is not None
 
     def upsert(self, events: list[Event]) -> tuple[list[Event], list[Event]]:
-        """Speichert Events. Gibt (neu, frisch_abgesagt) zurück."""
+        """Speichert Events. Gibt (neu, frisch abgesagt oder verschoben) zurück – was davon, sagt ev.moved.
+        War ein Event schon abgesagt und heisst jetzt «verschoben», gibt es keine zweite Meldung."""
         new, cancelled = [], []
         now = _now()
         with self.lock, self.db:
             for ev in events:
-                row = self.db.execute("SELECT cancelled FROM events WHERE uid=?", (ev.uid,)).fetchone()
+                row = self.db.execute("SELECT cancelled, moved FROM events WHERE uid=?", (ev.uid,)).fetchone()
                 if row is None:
                     self.db.execute(
                         "INSERT INTO events (uid, venue_id, native_id, title, date, end_date, time, url, tags,"
-                        " sold_out, cancelled, extra, first_seen, last_seen) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                        " sold_out, cancelled, moved, moved_note, extra, first_seen, last_seen)"
+                        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                         (ev.uid, ev.venue_id, ev.native_id, ev.title, ev.date.isoformat(),
                          ev.end_date.isoformat() if ev.end_date else None, ev.time, ev.url,
-                         json.dumps(ev.tags), int(ev.sold_out), int(ev.cancelled), json.dumps(ev.extra), now, now))
+                         json.dumps(ev.tags), int(ev.sold_out), int(ev.cancelled), int(ev.moved),
+                         ev.moved_note or None, json.dumps(ev.extra), now, now))
                     new.append(ev)
                 else:
-                    if ev.cancelled and not row["cancelled"]:
+                    if (ev.cancelled and not row["cancelled"]) or (ev.moved and not row["moved"] and not row["cancelled"]):
                         cancelled.append(ev)
                     # Felder aktualisieren, aber angereicherte Daten (Tags/Zeit) nicht mit leeren Werten überschreiben
                     self.db.execute(
-                        "UPDATE events SET title=?, date=?, end_date=?, url=?, sold_out=?, cancelled=?, last_seen=?,"
+                        "UPDATE events SET title=?, date=?, end_date=?, url=?, sold_out=?, cancelled=?, moved=?,"
+                        " moved_note=?, last_seen=?,"
                         " time=COALESCE(?, time), tags=CASE WHEN ?='[]' THEN tags ELSE ? END WHERE uid=?",
                         (ev.title, ev.date.isoformat(), ev.end_date.isoformat() if ev.end_date else None, ev.url,
-                         int(ev.sold_out), int(ev.cancelled), now, ev.time,
+                         int(ev.sold_out), int(ev.cancelled), int(ev.moved), ev.moved_note or None, now, ev.time,
                          json.dumps(ev.tags), json.dumps(ev.tags), ev.uid))
         return new, cancelled
 
@@ -429,7 +442,8 @@ class Store:
         d = dict(r)
         d["tags"] = json.loads(d["tags"] or "[]")
         d["extra"] = json.loads(d["extra"] or "{}")
-        d["sold_out"], d["cancelled"] = bool(d["sold_out"]), bool(d["cancelled"])
+        d["sold_out"], d["cancelled"], d["moved"] = bool(d["sold_out"]), bool(d["cancelled"]), bool(d.get("moved"))
+        d["moved_note"] = d.get("moved_note") or ""
         return d
 
     def runs(self) -> dict[str, dict]:

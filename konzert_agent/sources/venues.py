@@ -12,12 +12,14 @@ from zoneinfo import ZoneInfo
 from bs4 import BeautifulSoup
 
 from .base import (Source, register, parse_dotted_date, parse_time, month_from_name, infer_year, clean, split_status,
+                   first_sentence,
                    with_support)
 from .generic import CssSource, parse_any_date
 from ..models import Event
 
 log = logging.getLogger(__name__)
 ZURICH = ZoneInfo("Europe/Zurich")
+_MOVED = re.compile(r"verschoben|verlegt|postponed|report[ée]", re.I)     # im Titel, wo es keinen Status gibt
 
 
 @register("exil")
@@ -45,7 +47,7 @@ class ExilSource(Source):
                 native_id=urlsplit(url).path.rstrip("/").rsplit("/", 1)[-1],
                 title=title, date=d, url=url,
                 sold_out=bool(m["sold"]),
-                cancelled="abgesagt" in title.lower(),
+                cancelled="abgesagt" in title.lower(), moved=bool(_MOVED.search(title)) and "abgesagt" not in title.lower(),
                 tags=["Live"] if m["kind"].lower() == "live" else ["DJ"],
             ))
         return list(out.values())
@@ -174,7 +176,8 @@ class DynamoSource(Source):
                 time=f"{start:%H:%M}", url=base + alias, tags=cats,
                 end_date=end.date() if end and end - start >= timedelta(hours=24) else None,   # nicht: 22–03 Uhr
                 extra={"price": f"CHF {price}"} if price else {},
-                cancelled=bool(re.search(r"abgesagt|cancelled", title, re.I))))
+                cancelled=bool(re.search(r"abgesagt|cancelled", title, re.I)),
+                moved=bool(_MOVED.search(title)) and not re.search(r"abgesagt|cancelled", title, re.I)))
         return list(out.values())
 
 
@@ -215,7 +218,8 @@ class NordportalSource(Source):
                 time=parse_time((acf.get("start_zeit") or "")[10:]),
                 url=f"https://nordportal.ch/programm/{item.get('slug')}",
                 tags=[kind], sold_out=bool(acf.get("ist_ausverkauft")),
-                cancelled=bool(re.search(r"abgesagt|cancelled", title, re.I))))
+                cancelled=bool(re.search(r"abgesagt|cancelled", title, re.I)),
+                moved=bool(_MOVED.search(title)) and not re.search(r"abgesagt|cancelled", title, re.I)))
         return out
 
 
@@ -252,11 +256,12 @@ class VolkshausSource(Source):
                 continue
             d, mo = int(day.group(1)), int(day.group(2))
             ticket = next((a["href"].strip() for a in cols[1].find_all("a", href=True) if "ticket" in a.get_text().lower()), "")
-            title, sold, cancelled = split_status(lines[0])
+            st, info = split_status(lines[0]), cols[1].get_text(" ").upper()
             out.setdefault(el["data-event-id"], self.make_event(
-                native_id=el["data-event-id"], title=title, date=date(year or infer_year(d, mo), mo, d),
+                native_id=el["data-event-id"], title=st.title, date=date(year or infer_year(d, mo), mo, d),
                 time=parse_time(lines[1]), url=ticket or self.cfg.url, tags=[kind.capitalize()] if kind else [],
-                sold_out=sold or "AUSVERKAUFT" in cols[1].get_text(), cancelled=cancelled))
+                **st.flags(sold_out="AUSVERKAUFT" in info, cancelled="ABGESAGT" in info,
+                           moved=bool(re.search(r"VERSCHOBEN|VERLEGT", info)))))
         return list(out.values())
 
 
@@ -287,7 +292,8 @@ class Komplex457Source(Source):
                 native_id=e["id"], title=f"{title} & Support: {', '.join(support)}" if support else title,
                 date=start.date(), time=f"{start:%H:%M}", url=f"https://komplex-457.ch/EventDetail?id={e['id']}",
                 tags=[t.strip() for t in re.split(r"[,/]", e.get("genre") or "") if t.strip()],
-                sold_out=status == "ausverkauft", cancelled=status in ("abgesagt", "verlegt")))
+                sold_out=status == "ausverkauft", cancelled=status == "abgesagt",
+                moved=status == "verlegt", moved_note=first_sentence(e.get("postponed_info") or "") if status == "verlegt" else ""))
         return out
 
 
@@ -308,11 +314,16 @@ class TheHallSource(Source):
             if not a or not title_el or not d:
                 continue
             note = tile.get_text(" ").lower()
+            # «… in eine andere Location verlegt.» = weg von hier; «… auf dieses Datum verschoben.» = Datum ist das neue
+            moved = next((first_sentence(p.get_text(" ")) for p in tile.find_all("p")
+                          if re.search(r"verlegt|verschoben", p.get_text(), re.I)
+                          and "dieses datum" not in p.get_text().lower()), "")
             url = urljoin(base, a["href"])
             out.setdefault(url, self.make_event(
                 native_id=urlsplit(url).path.strip("/").split("/", 2)[-1], title=clean(title_el.get_text(" ")),
                 date=d[0], url=url, tags=[genres[c] for c in tile["class"] if c in genres],
-                sold_out="ausverkauft" in note, cancelled=bool(re.search(r"abgesagt|verlegt", note))))
+                sold_out="ausverkauft" in note, cancelled="abgesagt" in note and not moved,
+                moved=bool(moved), moved_note=moved))
         return list(out.values())
 
 
@@ -341,7 +352,8 @@ class MoodsSource(Source):
                 date=date.fromisoformat(e["eventDate"]), time=parse_time(e.get("timeStart") or ""),
                 url=f"https://www.moods.ch/{e['slug']}", tags=[g["label"] for g in e.get("genres") or []],
                 extra={"price": f"CHF {price}"} if price else {},
-                sold_out=bool(e.get("isSoldOut")), cancelled=bool(e.get("isCancelled"))))
+                sold_out=bool(e.get("isSoldOut")), cancelled=bool(e.get("isCancelled")),
+                moved=bool(e.get("isPostponed")) and not e.get("isCancelled")))
         return list(out.values())
 
 
@@ -357,12 +369,12 @@ class PlazaSource(Source):
             start = datetime.strptime(li["data-nu-edate"][:16], "%Y-%m-%d %H:%M")
             if start.date() < date.today() - timedelta(days=1):     # vereinzelt hängen vergangene Shows in der Liste
                 continue
-            title, sold, cancelled = split_status(clean(li.get("data-nu-etitle", "")))
+            st = split_status(clean(li.get("data-nu-etitle", "")))
             ticket = li.select_one("a.nu-e-link-ticket[href]")
             out.setdefault(li["data-nu-eid"], self.make_event(
-                native_id=li["data-nu-eid"], title=title, date=start.date(), time=f"{start:%H:%M}",
+                native_id=li["data-nu-eid"], title=st.title, date=start.date(), time=f"{start:%H:%M}",
                 url=ticket["href"].strip() if ticket else self.cfg.url,
-                tags=["Live"] if li.get("data-nu-etype") == "2" else [], sold_out=sold, cancelled=cancelled))
+                tags=["Live"] if li.get("data-nu-etype") == "2" else [], **st.flags()))
         return list(out.values())
 
 
@@ -384,11 +396,11 @@ class KaufleutenSource(Source):
             if not _wanted(kind, kinds):
                 continue
             start = datetime.fromisoformat(t["datetime"])
-            title, sold, cancelled = split_status(name)
+            st = split_status(name)
             out.setdefault(a["href"], self.make_event(
-                native_id=a["href"].rstrip("/").rsplit("/", 1)[-1], title=title, date=start.date(),
+                native_id=a["href"].rstrip("/").rsplit("/", 1)[-1], title=st.title, date=start.date(),
                 time=f"{start:%H:%M}", url=a["href"], tags=[kind] if kind else [],
-                sold_out=sold or "ausverkauft" in art.get_text().lower(), cancelled=cancelled))
+                **st.flags(sold_out="ausverkauft" in art.get_text().lower())))
         return list(out.values())
 
 
@@ -409,12 +421,13 @@ class SalzhausSource(Source):
             if not d or not _wanted(cat, kinds):
                 continue
             title = re.sub(rf"\s*\({re.escape(cat)}\)$", "", clean(a.get("title", ""))) if cat else clean(a.get("title", ""))
-            title, sold, cancelled = split_status(title)
+            st = split_status(title)
             status = (a.parent.get("data-status") or "").lower()
             url = urljoin(base, a["href"])
             out.setdefault(url, self.make_event(
-                native_id=a.get("data-id") or url, title=title, date=d[0], url=url, tags=[cat] if cat else [],
-                sold_out=sold or "sold" in status or "ausverkauft" in status, cancelled=cancelled or "cancel" in status))
+                native_id=a.get("data-id") or url, title=st.title, date=d[0], url=url, tags=[cat] if cat else [],
+                **st.flags(sold_out="sold" in status or "ausverkauft" in status, cancelled="cancel" in status,
+                           moved="postpone" in status or "verschoben" in status)))
         return list(out.values())
 
 
@@ -440,7 +453,7 @@ class AlbaniSource(Source):
             genre = head.select_one(".subline")
             time = parse_time(label.select_one(".albani-event-date .subline").get_text(" ")
                               if label.select_one(".albani-event-date .subline") else "")
-            title, sold, cancelled = split_status(lines[0].rstrip(":"))
+            st = split_status(lines[0].rstrip(":"))
             tags = [clean(genre.get_text(" "))] if genre else []
             if time and time >= "22:00":
                 tags.append("Club")
@@ -448,9 +461,9 @@ class AlbaniSource(Source):
             link = content.find("a", href=re.compile(r"/programm/")) if content else None
             native = re.search(r"albani_event_(\d+)", label["data-acc-ref"])
             out.setdefault(label["data-acc-ref"], self.make_event(
-                native_id=native.group(1) if native else f"{title}|{d[0]}", title=with_support(title, *lines[1:]),
+                native_id=native.group(1) if native else f"{st.title}|{d[0]}", title=with_support(st.title, *lines[1:]),
                 date=d[0], time=time, url=urljoin(base, link["href"]) if link else base, tags=tags,
-                sold_out=sold or "ausverkauft" in label.get_text().lower(), cancelled=cancelled))
+                **st.flags(sold_out="ausverkauft" in label.get_text().lower())))
         return list(out.values())
 
 
@@ -467,12 +480,12 @@ class BierhuebeliSource(Source):
             d = parse_any_date(date_el.get_text(" ")) if date_el else None
             if not d or not title_el:
                 continue
-            title, sold, cancelled = split_status(clean(title_el.get_text(" ")))
+            st, text = split_status(clean(title_el.get_text(" "))), a.get_text(" ")
             out.setdefault(a["href"], self.make_event(
                 native_id=a["href"].rstrip("/").rsplit("/", 1)[-1], date=d[0], url=a["href"],
-                title=with_support(title, by.get_text(" ") if by else ""),
-                sold_out=sold or bool(a.select_one(".soldout")),
-                cancelled=cancelled or bool(re.search(r"abgesagt", a.get_text(" "), re.I))))
+                title=with_support(st.title, by.get_text(" ") if by else ""),
+                **st.flags(sold_out=bool(a.select_one(".soldout")), cancelled=bool(re.search(r"abgesagt", text, re.I)),
+                           moved=bool(re.search(r"verschoben|verlegt", text, re.I)))))
         return list(out.values())
 
 
@@ -497,13 +510,15 @@ class MuehleHunzikenSource(Source):
                 else infer_year(d, mo)
             sub = a.select_one("div.uppercase")
             sub = clean(sub.get_text(" ")) if sub else ""
-            title, sold, cancelled = split_status(clean(h2.get_text(" ")))
+            st = split_status(clean(h2.get_text(" ")))
+            title, flags = st.title, [clean(f.get_text()).lower() for f in a.select(".flag")]
             if sub.startswith("& "):                                 # «Danko Jones» + «& The Headlines» (Vorband)
                 title = f"{title} & Support: {sub[2:]}"
             else:
                 title = with_support(title, sub)
             out.setdefault(a["href"], self.make_event(
                 native_id=a["href"].rstrip("/").rsplit("/", 1)[-1], title=title, date=date(year, mo, d), url=a["href"],
-                sold_out=sold or any(clean(f.get_text()).lower() == "ausverkauft" for f in a.select(".flag")),
-                cancelled=cancelled or any("abgesagt" in f.get_text().lower() for f in a.select(".flag"))))
+                **st.flags(sold_out="ausverkauft" in flags,
+                           cancelled=any("abgesagt" in f for f in flags),
+                           moved=any(re.search(r"verschoben|verlegt", f) for f in flags))))
         return list(out.values())

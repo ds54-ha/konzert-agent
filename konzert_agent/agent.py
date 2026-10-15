@@ -67,7 +67,7 @@ class Agent:
         a = config.artists
         self.artists = ArtistEnricher(
             ArtistLookup(s.user_agent, s.request_delay, cache=self.store, refresh_days=a.refresh_days,
-                         overrides=a.overrides), a.titles) if a.enabled else None
+                         overrides=a.overrides), a.titles, a.events) if a.enabled else None
 
     def enrich_artists(self, ev: Event):
         if not self.artists:
@@ -111,7 +111,7 @@ class Agent:
                 log.warning("Details für %s nicht geladen: %s", ev.url, e)
             self.enrich_artists(ev)            # nach enrich(): PETZI-Tags dienen als Genre-Rückfall
             self.store.update_details(ev)
-        new = [e for e in new if passes_filters(e, cfg) and not e.cancelled]
+        new = [e for e in new if passes_filters(e, cfg) and not e.cancelled and not e.moved]
         cancelled = [e for e in cancelled if passes_filters(e, cfg)]
 
         self.store.record_run(cfg.id, len(events), None if events else "0 Events gefunden")
@@ -120,7 +120,7 @@ class Agent:
             log.info("Venue %s: Erstimport von %d Events (ohne Benachrichtigung)", cfg.id, len(events))
             self.store.mark_notified([e.uid for e in new])
             return
-        log.info("Venue %s: %d Events, %d neu, %d abgesagt", cfg.id, len(events), len(new), len(cancelled))
+        log.info("Venue %s: %d Events, %d neu, %d abgesagt/verschoben", cfg.id, len(events), len(new), len(cancelled))
         result.new += new
         result.cancelled += cancelled
 

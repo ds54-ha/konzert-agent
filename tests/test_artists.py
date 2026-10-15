@@ -221,6 +221,16 @@ class EnrichTests(unittest.TestCase):
         self.assertEqual(enr.apply(self.ev("Goth Night – Volume 2 • heavy beats")).extra["artists_skip"], "manuell")
         self.assertEqual(enr.apply(self.ev("Ska-Night – X • Y")).extra["artists"][0]["name"], "Monolord")
 
+    def test_event_override_hits_only_that_show(self):
+        enr = ArtistEnricher(ArtistLookup("t", fetcher=FakeApi(MB, DZ)), {},
+                             {f"v {date.today().isoformat()}": ["Monolord", "Omisdus"]})
+        names = lambda ev: [n.name for n in enr.names_for(ev)[0]]
+        self.assertEqual(names(self.ev("MONOLORD")), ["Monolord", "Omisdus"])            # Support von Hand
+        later = Event(venue_id="v", native_id="2", title="MONOLORD", date=date.today() + timedelta(days=90))
+        self.assertEqual(names(later), ["MONOLORD"])                                    # spätere Show: nur der Titel
+        other = Event(venue_id="w", native_id="3", title="MONOLORD", date=date.today())
+        self.assertEqual(names(other), ["MONOLORD"])                                    # andere Location, gleicher Tag
+
 
 class AgentArtistTests(unittest.TestCase):
     def test_run_backfill_and_genre_filter(self):

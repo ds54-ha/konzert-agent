@@ -292,12 +292,14 @@ def create_app(agent: Agent):
             else:
                 end = date.fromisoformat(e["end_date"]) if e["end_date"] else d
                 lines += [f"DTSTART;VALUE=DATE:{d:%Y%m%d}", f"DTEND;VALUE=DATE:{end + timedelta(days=1):%Y%m%d}"]
-            summary = title(e) + (" (ABGESAGT)" if e["cancelled"] else "")
+            summary = title(e) + (" (ABGESAGT)" if e["cancelled"] else " (VERSCHOBEN)" if e.get("moved") else "")
             venue = venue_meta.get(e["venue_id"], {"name": e["venue_id"], "city": ""})
-            st = "CANCELLED" if e["cancelled"] else status(e)
+            # verschoben: nicht CANCELLED (findet ja statt, nur anders) – aber auch nicht mehr sicher
+            st = "CANCELLED" if e["cancelled"] else "TENTATIVE" if e.get("moved") else status(e)
+            moved = [f"Verschoben: {e.get('moved_note') or 'neues Datum/Ort noch offen'}"] if e.get("moved") else []
             lines += [f"SUMMARY:{_ics_escape(summary)}",
                       f"LOCATION:{_ics_escape(venue['name'] + (', ' + venue['city'] if venue['city'] else ''))}",
-                      f"URL:{e['url']}", f"DESCRIPTION:{_ics_escape(chr(10).join([*describe(e), e['url']]))}"]
+                      f"URL:{e['url']}", f"DESCRIPTION:{_ics_escape(chr(10).join([*moved, *describe(e), e['url']]))}"]
             lines += [f"STATUS:{st}"] if st else []
             lines.append("END:VEVENT")
         lines.append("END:VCALENDAR")

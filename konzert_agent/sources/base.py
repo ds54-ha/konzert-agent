@@ -15,6 +15,7 @@ Für viele Seiten reicht aber schon ein generischer Typ (petzi, jsonld, ical, cs
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from datetime import date
 
 from ..config import VenueConfig
@@ -138,20 +139,48 @@ def clean(text: str) -> str:
     return re.sub(r"\s+", " ", text or "").strip()
 
 
-# Status-Zusätze am Titelende: «Simple Plan - SOLD OUT!», «… / AUSVERKAUFT», «Masego - VERSCHOBEN!»
-_STATUS = re.compile(r"\s*[-–/|:]?\s*[(\[]?\s*(ausverkauft|sold[\s-]*out|abgesagt|cancell?ed|verschoben|postponed|"
-                     r"neues datum)\s*!?[)\]]?\s*$", re.I)
+def first_sentence(text: str) -> str:
+    """Erster Satz ohne Schlusspunkt – trennt nicht bei Daten wie «am 24.11. wird»."""
+    return re.split(r"(?<=[^\W\d]\.)\s", clean(text), maxsplit=1)[0].rstrip(".")
 
 
-def split_status(title: str) -> tuple[str, bool, bool]:
-    """Titel ohne Status-Zusatz -> (titel, ausverkauft, abgesagt)."""
-    sold = cancelled = False
+# Status-Zusätze am Titelende: «Simple Plan - SOLD OUT!», «… / AUSVERKAUFT», «Masego - VERSCHOBEN!».
+# «Neues Datum» heisst: das angezeigte Datum IST das neue – wird nur entfernt, kein Status.
+_STATUS = re.compile(r"\s*[-–/|:]?\s*[(\[]?\s*(ausverkauft|sold[\s-]*out|abgesagt|cancell?ed|verschoben|verlegt|postponed|"
+                     r"report[ée]e?|neues datum)\s*!?[)\]]?\s*$", re.I)
+# «Band – verschoben auf 13.04.2027», «Band (verlegt ins Dynamo)»: das Ziel wird zum Hinweis
+_MOVED_TO = re.compile(r"\s*[-–/|:(\[]\s*((?:verschoben|verlegt)\s+(?:auf|in|ins|nach)\s.+?)\s*[)\]]?\s*$", re.I)
+
+
+@dataclass
+class TitleStatus:
+    title: str
+    sold_out: bool = False
+    cancelled: bool = False
+    moved: bool = False          # verschoben/verlegt: sieht aus wie abgesagt, aber mit Hinweis wohin/wann
+    moved_note: str = ""
+
+    def flags(self, sold_out: bool = False, cancelled: bool = False, moved: bool = False, moved_note: str = "") -> dict:
+        """Status für make_event(**…), ergänzt um Hinweise von anderswo auf der Seite. Abgesagt schlägt verschoben."""
+        cancelled = self.cancelled or cancelled
+        moved = (self.moved or moved) and not cancelled
+        return {"sold_out": self.sold_out or sold_out, "cancelled": cancelled, "moved": moved,
+                "moved_note": clean(self.moved_note or moved_note) if moved else ""}
+
+
+def split_status(title: str) -> TitleStatus:
+    """Titel ohne Status-Zusatz, Status getrennt."""
+    st = TitleStatus(title)
+    if (m := _MOVED_TO.search(title)) and m.start() > 0:
+        st.moved, st.moved_note, title = True, m.group(1), title[:m.start()].rstrip()
     while (m := _STATUS.search(title)) and m.start() > 0:
         word = m.group(1).lower()
-        sold |= word.startswith(("ausverkauft", "sold"))
-        cancelled |= word.startswith(("abgesagt", "cancel"))
+        st.sold_out |= word.startswith(("ausverkauft", "sold"))
+        st.cancelled |= word.startswith(("abgesagt", "cancel"))
+        st.moved |= word.startswith(("verschoben", "verlegt", "postponed", "report"))
         title = title[:m.start()].rstrip()
-    return title, sold, cancelled
+    st.title = title
+    return st
 
 
 _SUPPORT_TXT = re.compile(r"\b(?:support|s(?:pe|ep)cial guests?|warm-?up)\s*:\s*(.+)$", re.I)

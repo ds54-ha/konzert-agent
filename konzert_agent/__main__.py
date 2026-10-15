@@ -61,7 +61,7 @@ def artists_report(agent: Agent, only: list[str], lookup: bool = True, limit: in
         sys.exit(f"Unbekannte Location: {', '.join(set(only) - {v.id for v in venues})}")
     enricher = agent.artists or ArtistEnricher(ArtistLookup(cfg.settings.user_agent, cfg.settings.request_delay,
                                                             cache=agent.store, overrides=cfg.artists.overrides),
-                                               cfg.artists.titles)
+                                               cfg.artists.titles, cfg.artists.events)
     stats = {"events": 0, "skipped": 0, "artists": 0, "genres": 0, "fans": 0}
     conf: dict[str, int] = {}
     for vc in venues:
@@ -244,7 +244,7 @@ def main(argv=None):
 
     if a.cmd == "run":
         res = agent.run(only=a.venues or None, notify=not a.no_notify)
-        print(f"{len(res.new)} neu, {len(res.cancelled)} abgesagt, Fehler: {res.errors or 'keine'}")
+        print(f"{len(res.new)} neu, {len(res.cancelled)} abgesagt/verschoben, Fehler: {res.errors or 'keine'}")
         return
 
     if a.cmd == "serve":

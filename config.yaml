@@ -65,6 +65,11 @@ artists:
     "^Goth Night": []
   #  "^Ska-Night": [Kalles Kaviar, Canastron]
 
+  # Line-up für EIN bestimmtes Event: «<location> <Datum>» -> Bands. Für Support-Bands, die die Location nicht nennt –
+  # anders als `titles` trifft das keine späteren Shows mit gleichem Titel. Nach dem Konzert darf der Eintrag weg.
+  events:
+    "volkshaus 2027-02-18": [Feine Sahne Fischfilet, Dritte Wahl]
+
 # Eigene Quellen-Dateien (Python), siehe README «Eigene Quelle schreiben»
 plugins: []
 

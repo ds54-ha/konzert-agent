@@ -94,6 +94,7 @@ class JsonLdSource(Source):
             end_date=end[0] if end and end[0] != d[0] else None,
             time=parse_time(start.split("T", 1)[1][:5]) if "T" in start else None,
             url=url, cancelled="Cancelled" in status, sold_out="SoldOut" in avail,
+            moved="Postponed" in status,
         )
 
 
@@ -145,7 +146,7 @@ class CssSource(Source):
           tags: ".genre"               # optional, mehrere Treffer erlaubt
           support: "p"                 # optional: Zeile mit «Support: …» -> an den Titel angehängt
 
-    «Ausverkauft», «Sold out!», «Abgesagt» am Titelende werden entfernt und als Status übernommen.
+    «Ausverkauft», «Sold out!», «Abgesagt», «Verschoben» am Titelende werden entfernt und als Status übernommen.
     """
 
     def parse(self, html: str) -> list[Event]:
@@ -166,7 +167,8 @@ class CssSource(Source):
                 link = item
             url = urljoin(self.cfg.url, link["href"]) if link and link.has_attr("href") else self.cfg.url
             time_el = item.select_one(sel["time"]) if sel.get("time") else None
-            title, sold_out, cancelled = split_status(clean(title_el.get_text(" ")))
+            st = split_status(clean(title_el.get_text(" ")))
+            title = st.title
             if sel.get("support"):
                 title = with_support(title, *(el.get_text(" ") for el in item.select(sel["support"])))
             ev = self.make_event(
@@ -174,7 +176,7 @@ class CssSource(Source):
                 title=title, date=d[0], end_date=d[1], url=url,
                 time=parse_time(time_el.get_text(" ")) if time_el else None,
                 tags=[clean(t.get_text()) for t in item.select(sel["tags"])] if sel.get("tags") else [],
-                sold_out=sold_out, cancelled=cancelled,
+                **st.flags(),
             )
             out.setdefault(ev.native_id, ev)
         return list(out.values())

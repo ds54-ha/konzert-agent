@@ -18,6 +18,8 @@ class Event:
     tags: list[str] = field(default_factory=list)
     sold_out: bool = False
     cancelled: bool = False
+    moved: bool = False      # verschoben/verlegt (nicht abgesagt) – moved_note sagt wohin bzw. auf wann
+    moved_note: str = ""
     extra: dict = field(default_factory=dict)
 
     @property
