@@ -45,6 +45,7 @@ class Settings:
     notify_on_first_run: bool = False
     base_url: str = ""
     new_badge_days: int = 7
+    copyright: str = ""             # Name im Copyright-Hinweis unten auf der Seite
 
 
 @dataclass

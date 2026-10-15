@@ -35,23 +35,23 @@
          Old Capitol (Langenthal), Z7 (Pratteln) (v1.4.0)
   - Old Capitol: PETZI 268307 · Z7: `css` · X-tra/Dynamo/Nordportal: eigene Scraper
   - X-tra erlaubt Bots inzwischen (robots.txt «Allow: /»)
-  - [ ] Dynamo zeigt nur ~6 Wochen; die Drupal-JSON:API (dynamo.nodehive.app) hätte alles, enthält aber
-        private Kontaktdaten der Veranstalter → bewusst nicht verwendet
+  - [x] Dynamo: alle Events über die Drupal-JSON:API (dynamo.nodehive.app) statt nur ~6 Wochen; nur die
+        nötigen Felder abgefragt (`fields[...]`), Veranstalter-Kontaktdaten werden nicht geladen (v1.14.0)
 - [ ] 13. statt nur locations auch Bandseiten direkt, um Touranouncement abzufangen und die Daten einzupflegen
 ## Layout & Bedienung
 
 - [x] 7. Optimierungen am UX (v1.10.0)
   - [x] Zusätzlicher Kalenderselector um individuelle Zeiträume (nicht nur Wochenende, 7, 30 Tage etc.) zu wählen
   - [x] Locations als zusammenklappbar per Stadt (Haken pro Stadt, ⚠ bei Fehlern)
-    - [ ] Einfügen von "colapse all"
-    - [ ] Hinter jeder Location eine "nur" Button
+    - [x] Einfügen von "colapse all" («alle aufklappen / zuklappen») (v1.14.0)
+    - [x] Hinter jeder Location eine "nur" Button (auch pro Stadt) (v1.14.0)
   - [x] Persönliche Einstellungen am Ende der Sidebar (Teilen zusätzlich im Dashboard)
   - [x] Filter nach Event-Typ: Konzert / Party / Andere – aus Tags der Location, sonst eindeutigen Titelwörtern
         (`konzert_agent/kinds.py`); auch im iCal-Abo (`?kind=…`)
 - [x] 8. Optimierungen am Layout (v1.10.0)
   - [x] Option zur Wahl der Akzentfarbe (6 Farben, je hell/dunkel abgestimmt)
   - [x] Option für Dark-/Lightmode (System / Hell / Dunkel) – pro Gerät gespeichert, auch für Gäste
-  - [ ] add a disclaimer and copyright notice at the bottom
+  - [x] add a disclaimer and copyright notice at the bottom (`settings.copyright`) (v1.14.0)
 
 ## Userfunktionen
 

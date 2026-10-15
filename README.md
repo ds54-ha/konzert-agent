@@ -27,7 +27,9 @@ Genre, Popularität und Locations (nach Stadt gruppiert, aufklappbar). Den Typ l
 er wird aus den Tags der Location (z.B. PETZI «Party», «Performance») bzw. eindeutigen Titelwörtern abgeleitet
 (`konzert_agent/kinds.py`). Unter **Einstellungen**: Hell / Dunkel / System und die Akzentfarbe – pro Gerät
 im Browser gespeichert. Locations, Suche, Typ, Genre und Popularität wirken auch auf den iCal-Link (der
-Zeitraum nicht – ein Abo soll weiterlaufen).
+Zeitraum nicht – ein Abo soll weiterlaufen). Bei den Locations: **nur** (beim Überfahren mit der Maus) zeigt
+nur diese Location bzw. Stadt, «alle aufklappen / zuklappen» öffnet alle Städte. Unten auf der Seite stehen
+Haftungsausschluss und Copyright (`settings.copyright` in config.yaml = Name nach dem ©).
 
 **Line-up:** Stehen mehrere Acts im Titel («Bibi Vaplan & Support: Omisdus», «Erra + Currents»), zeigt die
 Karte darunter den Hauptact und «mit …» die weiteren – je mit Herkunft, Stil und Fans, angemeldet mit ＋ zum
@@ -216,15 +218,17 @@ erkennbarer User-Agent). Diese Anfragen laufen darum ohne robots-Prüfung, aber 
 
 ## Hinweise
 
-- Die Scraper für **Exil**, **Hallenstadion**, **X-tra**, **Dynamo**, **Z7** und **Schüür** lesen die
+- Die Scraper für **Exil**, **Hallenstadion**, **X-tra**, **Z7** und **Schüür** lesen die
   HTML-Struktur der Seiten; ändert sich das Layout, meldet der Kalender bei der Location «⚠ Fehler»
   bzw. 0 Events → mit `test <id>` prüfen.
 - Hallenstadion zeigt auf der Übersicht nur 12 Events; der Scraper lädt die weiteren Seiten über den
   «mehr laden»-Endpunkt (`admin-ajax.php`, ≈ 8 Seiten → 8 Anfragen à 2 s pro Lauf).
 - **X-tra** zeigt 9 Events; der Rest kommt wie im Browser über «Alle anzeigen» (POST mit dem
   CSRF-Token der Seite). Klappt das nicht mehr, bleiben die ersten 9 und im Log steht eine Warnung.
-- **Dynamo** zeigt nur ~6 Wochen im Voraus – spätere Konzerte erscheinen, sobald sie nachrücken. Die
-  Uhrzeiten in der Liste sind UTC und werden umgerechnet.
+- **Dynamo**: Die Website zeigt nur ~6 Wochen, holt ihr Programm aber aus einer Drupal-JSON:API
+  (`dynamo.nodehive.app`) – der Scraper fragt diese ab und bekommt alles (≈ 1 Jahr). Abgefragt werden nur
+  Titel, Datum, Pfad, Preis und Kategorien; die Kontaktdaten der Veranstalter, die die API sonst mitliefert,
+  werden gar nicht geladen. Kategorien (Konzert, Metal, Hip-Hop …) werden zu Tags.
 - **Nordportal** lädt sein Programm per JavaScript aus einer WordPress-API (`npwp.kailua.ch`); der
   Scraper fragt dieselbe API ab. Standard: nur Liveshows (`kinds` in config.yaml).
 - Wenn `./data` nicht beschreibbar ist (Container läuft als UID 1000): `sudo chown 1000 data`.

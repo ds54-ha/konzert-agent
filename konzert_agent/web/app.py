@@ -90,7 +90,8 @@ def create_app(agent: Agent):
         for vid, m in venue_meta.items():
             out.append({**m, "upcoming": counts.get(vid, 0), "run": runs.get(vid)})
         return JSONResponse({"venues": out, "interval_hours": cfg.settings.interval_hours,
-                             "new_badge_days": cfg.settings.new_badge_days, "version": __version__})
+                             "new_badge_days": cfg.settings.new_badge_days, "version": __version__,
+                             "copyright": cfg.settings.copyright})
 
     async def api_run(req):
         if cfg.auth.enabled and req.state.user is None:     # Middleware lässt Gäste nicht durch – doppelt hält besser

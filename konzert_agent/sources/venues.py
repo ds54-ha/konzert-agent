@@ -5,7 +5,7 @@ import json
 import logging
 import re
 from dataclasses import replace
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta
 from urllib.parse import urljoin, urlsplit, parse_qs, urlencode
 from zoneinfo import ZoneInfo
 
@@ -126,41 +126,54 @@ class XtraSource(CssSource):
 
 @register("dynamo")
 class DynamoSource(Source):
-    """dynamo.ch/events-kurse – ein Block pro Tag (<div class="view-grid" id="2026-10-16">), darin
-    Karten mit Kategorie («Event / Konzert», «Kurs / Gestaltung»). Die Seite zeigt nur ~6 Wochen.
+    """dynamo.ch – die Website holt ihr Programm aus einer Drupal-JSON:API (dynamo.nodehive.app). Die Seite selbst
+    zeigt nur ~6 Wochen, die API alles. Abgefragt werden nur Titel, Datum, Pfad, Preis und Kategorien
+    (`fields[...]`) – die Veranstalter-Kontaktdaten der Events werden gar nicht erst geladen.
 
-    Achtung: die Uhrzeiten in der Liste sind UTC (Detailseite: 19:00, Liste: 17:00) -> umrechnen.
-    Option `kinds`: welche Event-Kategorien übernommen werden (Standard: nur Konzerte)."""
+    Kategorien: Art (Konzert, Party, Workshops, Theater/Performance) + Genres (Metal, Hip-Hop …) -> Tags.
+    Option `kinds`: welche Arten übernommen werden (Standard: nur Konzerte)."""
 
-    _TIME = re.compile(r"\b(\d{1,2}):(\d{2})\s*[–-]")
+    API = "https://dynamo.nodehive.app/jsonapi/node/event"
+    FIELDS = "field_title,title,field_event_date,path,field_categories,field_event_ticket_price"
+    PAGE = 50
 
-    def parse(self, html: str) -> list[Event]:
-        soup = BeautifulSoup(html, "lxml")
+    def fetch(self) -> list[Event]:
+        q = {"filter[d][condition][path]": "field_event_date.value", "filter[d][condition][operator]": ">=",
+             "filter[d][condition][value]": date.today().isoformat(), "sort": "field_event_date.value",
+             "include": "field_categories", "fields[node--event]": self.FIELDS,
+             "fields[taxonomy_term--event_category]": "name", "page[limit]": self.PAGE}
+        data, included = [], []
+        for page in range(20):                     # 50 pro Seite, mehr als 1000 kommende gibt es nicht
+            d = json.loads(self.fetcher.get(f"{self.API}?{urlencode({**q, 'page[offset]': page * self.PAGE})}"))
+            data += d.get("data") or []
+            included += d.get("included") or []
+            if not (d.get("links") or {}).get("next"):
+                break
+        return self.parse(json.dumps({"data": data, "included": included}))
+
+    def parse(self, text: str) -> list[Event]:
+        d = json.loads(text)
         kinds = {k.lower() for k in self.opt("kinds", ["Konzert"])}
-        base = self.cfg.url or "https://www.dynamo.ch/events-kurse"
+        names = {i["id"]: i["attributes"]["name"] for i in d.get("included") or [] if i.get("type", "").startswith("taxonomy")}
+        base = "https://www.dynamo.ch"
         out: dict[str, Event] = {}
-        for day in soup.select("div.view-grid[id]"):
-            try:
-                d = date.fromisoformat(day["id"])
-            except ValueError:
+        for item in d.get("data") or []:
+            a = item.get("attributes") or {}
+            rel = ((item.get("relationships") or {}).get("field_categories") or {}).get("data") or []
+            cats = [names[c["id"]] for c in rel if c.get("id") in names]
+            when, alias = a.get("field_event_date") or {}, (a.get("path") or {}).get("alias")
+            if not alias or not when.get("value") or not kinds & {c.lower() for c in cats}:
                 continue
-            for art in day.find_all("article"):
-                link = art.find("a", href=re.compile(r"/veranstaltung/"))
-                cat = clean(art.find("p").get_text(" ")) if art.find("p") else ""
-                main, _, kind = (c.strip() for c in cat.partition("/"))
-                if not link or main.lower() != "event" or kind.lower() not in kinds:
-                    continue
-                title_el = art.find(["h3", "h2"])
-                title = clean(title_el.get_text(" ") if title_el else link.get_text(" "))
-                m = self._TIME.search(art.get_text(" "))
-                time = None
-                if m:
-                    utc = datetime(d.year, d.month, d.day, int(m[1]), int(m[2]), tzinfo=timezone.utc)
-                    time = f"{utc.astimezone(ZURICH):%H:%M}"
-                url = urljoin(base, link["href"])
-                out.setdefault(url, self.make_event(
-                    native_id=link["href"].rstrip("/").rsplit("/", 1)[-1], title=title, date=d, time=time,
-                    url=url, tags=[kind], cancelled=bool(re.search(r"abgesagt|cancelled", title, re.I))))
+            start = datetime.fromisoformat(when["value"]).astimezone(ZURICH)
+            end = datetime.fromisoformat(when["end_value"]).astimezone(ZURICH) if when.get("end_value") else None
+            title = clean(a.get("field_title") or a.get("title") or "")
+            price = a.get("field_event_ticket_price")
+            out.setdefault(alias, self.make_event(
+                native_id=alias.rstrip("/").rsplit("/", 1)[-1], title=title, date=start.date(),
+                time=f"{start:%H:%M}", url=base + alias, tags=cats,
+                end_date=end.date() if end and end - start >= timedelta(hours=24) else None,   # nicht: 22–03 Uhr
+                extra={"price": f"CHF {price}"} if price else {},
+                cancelled=bool(re.search(r"abgesagt|cancelled", title, re.I))))
         return list(out.values())
 
 

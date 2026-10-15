@@ -5,18 +5,21 @@ from datetime import date
 from konzert_agent.config import VenueConfig
 from konzert_agent.sources import create_source
 
-DYNAMO = """
-<div class="view-grid" id="2026-10-16">
-  <article><p><span>Kurs</span> <span>/</span> <span>Gestaltung</span></p> 07:00–11:00
-    <a href="/veranstaltung/risografie"><h3>Crashkurs Risografie</h3></a></article>
-  <article><p><span>Event</span> <span>/</span> <span>Konzert</span></p> 17:00–21:30
-    <a href="/veranstaltung/xoxo"><h3>XOXO &amp; CHOKESLAM</h3></a></article>
-  <article><p><span>Event</span> <span>/</span> <span>Party</span></p> 20:00–02:00
-    <a href="/veranstaltung/sihlrave"><h3>Sihlrave</h3></a></article>
-</div>
-<div class="view-grid" id="2026-11-08">
-  <article><p>Event / Konzert</p> 18:00–22:00 <a href="/veranstaltung/conway"><h3>CONWAY THE MACHINE (US) live</h3></a></article>
-</div>"""
+DYNAMO = {"data": [
+    {"attributes": {"field_title": "Crashkurs Risografie", "path": {"alias": "/veranstaltung/risografie"},
+                    "field_event_date": {"value": "2026-10-16T09:00:00+02:00"}},
+     "relationships": {"field_categories": {"data": [{"id": "w"}]}}},
+    {"attributes": {"field_title": "XOXO & CHOKESLAM", "path": {"alias": "/veranstaltung/xoxo"}, "field_event_ticket_price": 25,
+                    "field_event_date": {"value": "2026-10-16T19:00:00+02:00", "end_value": "2026-10-16T23:30:00+02:00"}},
+     "relationships": {"field_categories": {"data": [{"id": "k"}, {"id": "h"}]}}},
+    {"attributes": {"field_title": "Sihlrave", "path": {"alias": "/veranstaltung/sihlrave"},
+                    "field_event_date": {"value": "2026-10-16T22:00:00+02:00", "end_value": "2026-10-17T04:00:00+02:00"}},
+     "relationships": {"field_categories": {"data": [{"id": "p"}]}}},
+    {"attributes": {"field_title": "Heartline Festival", "path": {"alias": "/veranstaltung/heartline"},
+                    "field_event_date": {"value": "2026-11-28T14:30:00Z", "end_value": "2026-11-29T23:00:00Z"}},
+     "relationships": {"field_categories": {"data": [{"id": "k"}]}}},
+], "included": [{"type": "taxonomy_term--event_category", "id": i, "attributes": {"name": n}}
+                for i, n in [("w", "Workshops"), ("k", "Konzert"), ("h", "Hardcore/Punk"), ("p", "Party")]]}
 
 NORDPORTAL = [
     {"id": 1, "slug": "lunik-29-11-2026", "acf": {"event_art": "Liveshow", "datum": "29.11.2026",
@@ -56,13 +59,25 @@ def src(type_, url, fetcher=None, **opts):
 
 
 class VenueTests(unittest.TestCase):
-    def test_dynamo_kinds_and_utc_times(self):
-        evs = src("dynamo", "https://www.dynamo.ch/events-kurse").parse(DYNAMO)
-        self.assertEqual([(e.title, e.date, e.time) for e in evs],
-                         [("XOXO & CHOKESLAM", date(2026, 10, 16), "19:00"),            # Sommerzeit: +2 h
-                          ("CONWAY THE MACHINE (US) live", date(2026, 11, 8), "19:00")])  # Winterzeit: +1 h
-        self.assertEqual(evs[0].url, "https://www.dynamo.ch/veranstaltung/xoxo")
-        self.assertEqual(len(src("dynamo", "", kinds=["Konzert", "Party"]).parse(DYNAMO)), 3)
+    def test_dynamo_api(self):
+        evs = src("dynamo", "").parse(json.dumps(DYNAMO))
+        self.assertEqual([(e.title, e.date, e.time, e.end_date) for e in evs],
+                         [("XOXO & CHOKESLAM", date(2026, 10, 16), "19:00", None),
+                          ("Heartline Festival", date(2026, 11, 28), "15:30", date(2026, 11, 30))])   # UTC -> Zürich
+        self.assertEqual((evs[0].url, evs[0].native_id), ("https://www.dynamo.ch/veranstaltung/xoxo", "xoxo"))
+        self.assertEqual((evs[0].tags, evs[0].extra), (["Konzert", "Hardcore/Punk"], {"price": "CHF 25"}))
+        self.assertEqual(len(src("dynamo", "", kinds=["Konzert", "Party"]).parse(json.dumps(DYNAMO))), 3)
+
+    def test_dynamo_pages_and_only_needed_fields(self):
+        page = lambda n, more: json.dumps({"data": [DYNAMO["data"][1]] if n == 0 else [DYNAMO["data"][3]],
+                                           "included": DYNAMO["included"], "links": {"next": {"href": "…"}} if more else {}})
+        f = FakeFetcher()
+        f.get = lambda url: (f.calls.append(url), page(len(f.calls) - 1, len(f.calls) == 1))[1]
+        evs = src("dynamo", "", fetcher=f).fetch()
+        self.assertEqual(len(evs), 2)
+        self.assertEqual(len(f.calls), 2)
+        self.assertIn("fields%5Bnode--event%5D=field_title", f.calls[0])
+        self.assertNotIn("organizer", f.calls[0])
 
     def test_nordportal(self):
         evs = src("nordportal", "").parse(json.dumps(NORDPORTAL))

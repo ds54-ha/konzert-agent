@@ -10,6 +10,7 @@ settings:
   new_badge_days: 7            # wie lange ein Event im Kalender als «neu» markiert ist
   base_url: ${KONZERT_BASE_URL:-}   # z.B. http://homelab.local:8080 – wird in Telegram verlinkt
   user_agent: "KonzertAgent/1.0 (privater Konzert-Notifier)"
+  copyright: "FloDwoSoft"      # Name für «© <Jahr> <Name>» unten auf der Seite (leer = nur Jahr)
 
 # Login – Benutzer anlegen: python -m konzert_agent user add <name>   (siehe README «Login»)
 auth:
@@ -139,9 +140,9 @@ venues:
   - id: dynamo
     name: Dynamo
     city: Zürich
-    type: dynamo                    # Seite zeigt nur ~6 Wochen im Voraus
+    type: dynamo                    # über die API der Website: alle Events (die Seite zeigt nur ~6 Wochen)
     url: https://www.dynamo.ch/events-kurse
-    options: {kinds: [Konzert]}     # z.B. [Konzert, Party] für auch Partys
+    options: {kinds: [Konzert]}     # z.B. [Konzert, Party] für auch Partys; weitere: Workshops, Theater/Performance
 
   - id: nordportal
     name: Nordportal
