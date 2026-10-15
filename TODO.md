@@ -50,6 +50,14 @@
         St. Jakobshalle, Südpol, Galvanik Zug, Kugl, Mokka Thun;
         Rote Fabrik hat auf PETZI nur wenige Events (eigene Seite prüfen)
 - [ ] 13. statt nur locations auch Bandseiten direkt, um Touranouncement abzufangen und die Daten einzupflegen
+- [ ] 18. Regionen als «Plugins» (Länder/Bundesländer/Städte), getrennt deploybar – z. B. Schweiz und Berlin
+  - [ ] Venue-Sets pro Region in eigene Dateien auslagern (z. B. `regions/ch.yaml`, `regions/de-berlin.yaml`),
+        `config.yaml` wählt nur aus, welche Regionen aktiv sind
+  - [ ] Regionsspezifische Scraper in eigene Module (`sources/ch/…`, `sources/de/…`); nur aktive Regionen laden
+  - [ ] Pro Region: Zeitzone, Währung (CHF/EUR, Preisformat), Sprache der Status-Wörter, Ticketplattformen
+        (PETZI ↔ z. B. Eventim/Eventbrite für Berlin)
+  - [ ] Separat deploybar: eigene Instanz pro Region (eigene DB/Port) oder eine Instanz mit Regionsfilter in der UI
+  - [ ] Berlin-Set: Venues sammeln und Scraper bauen
 ## Layout & Bedienung
 
 - [x] 7. Optimierungen am UX (v1.10.0)
@@ -75,6 +83,11 @@
   - [x] Folgen per ＋ beim Konzert oder per Name im Tab «Meine»; ★ in der Liste, «★ Gefolgte Bands» im Dashboard (v1.12.0)
   - [x] Treffer über erkannte Bands oder Name als ganze Wörter im Titel (auch Support-Bands) (v1.12.0)
   - [x] Telegram: «⭐ Neue Show …» immer (auch bei «Aus»), abschaltbar; nicht doppelt in der allgemeinen Liste (v1.12.0)
+- [ ] 17. Persönliches Dashboard funktionaler + soziale Funktionen
+  - [ ] Freunde wählen: Freunde sehen meine Konzertliste (interessiert / gehe hin)
+  - [ ] Bei «Tickets kaufte jemand anders» auswählen, welcher Freund die Tickets gekauft hat
+  - [ ] Persönlicher Kalender im Dashboard (eigene Konzerte als Monatsansicht)
+  - [ ] Einstellungen (Telegram, Filter, Passwort …) in einen eigenen Tab «Einstellungen» verschieben
 
 ## Später
 
