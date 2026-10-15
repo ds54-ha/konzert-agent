@@ -66,8 +66,11 @@
 
 ## Später
 
-- [ ] 11. Support-Bands in der Liste anzeigen, unterhalb des Hauptacts
-- [ ] 12. Archiv: vergangene Events anschauen (Events werden nicht gelöscht, die DB füllt sich ab 2026-10-14)
+- [x] 11. Support-Bands in der Liste anzeigen, unterhalb des Hauptacts (v1.13.0)
+  - Line-up aus dem Titel (Locations liefern Support nicht separat): Hauptact, darunter «mit …» mit Stil/Fans, ＋ folgen
+- [x] 12. Archiv: vergangene Events anschauen (Events werden nicht gelöscht, die DB füllt sich ab 2026-10-14) (v1.13.0)
+  - Tab «Archiv» (neueste zuerst, Filter ohne Zeitraum, auch für Gäste); Monatsansicht blättert zurück
+  - [ ] auch einen "Von-Bis"Filter im Archiv
 
 Reihenfolge (2026-10-14): zuerst 6 (erledigt), dann 4 (erledigt).
 Reihenfolge (2026-10-15): 7 + 8 zusammen, dann 9 → 10, danach 11 und 12.

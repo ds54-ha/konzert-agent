@@ -131,6 +131,11 @@ details.past[open] summary .dash-h::before{content:"▾ "}
 #whoName:hover{color:var(--ink)}
 .seg button .n{background:var(--warn);color:#fff;border-radius:999px;font-size:10px;padding:1px 6px;margin-left:5px}
 .ev .meta{color:var(--muted);font-size:13px;margin-top:3px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.lineup{font-size:13px;margin-top:6px;display:flex;flex-direction:column;gap:3px}
+.lineup .act{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.lineup .role{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;min-width:30px}
+.lineup .am{color:var(--muted);font-size:12px}
+.lineup .mk{padding:1px 8px;font-size:11px}
 .ev .time{font-family:"JetBrains Mono",monospace;font-size:13px;min-width:44px;padding-top:2px;color:var(--muted)}
 .badge{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:2px 7px;border-radius:999px}
 .b-new{background:var(--new);color:var(--panel)} .b-fol{background:var(--accent);color:var(--accent-ink)}
@@ -210,7 +215,7 @@ details.past[open] summary .dash-h::before{content:"▾ "}
       <div class="label">Suche</div>
       <input type="search" id="q" placeholder="Band, Genre …">
     </div>
-    <div class="group">
+    <div class="group" id="rangeGroup">
       <div class="label">Zeitraum</div>
       <div class="chips" id="range"></div>
       <div class="custom-range" id="customRange" hidden>
@@ -259,7 +264,7 @@ details.past[open] summary .dash-h::before{content:"▾ "}
   <main>
     <div class="toolbar">
       <div class="tools">
-        <div class="seg" id="viewSeg"><button data-view="list" class="on">Liste</button><button data-view="month">Monat</button><button data-view="mine" id="mineTab" hidden>Meine</button></div>
+        <div class="seg" id="viewSeg"><button data-view="list" class="on">Liste</button><button data-view="month">Monat</button><button data-view="archive" title="Vergangene Events">Archiv</button><button data-view="mine" id="mineTab" hidden>Meine</button></div>
         <div class="seg" id="sortSeg" title="Sortierung der Liste"><button data-sort="date" class="on">Datum</button><button data-sort="pop">Popularität</button></div>
       </div>
       <span class="count" id="count"></span>
@@ -286,6 +291,7 @@ const store = {
 
 let venues = [], events = [], meta = {}, me = null, marks = {mine: {}, others: {}, share: false}, myEvents = [];
 let tg = {available: false}, tgLink = null, tgPoll = null;   // Telegram pro Benutzer
+let archive = null;                          // vergangene Events – erst beim ersten Blick ins Archiv geladen
 let follows = {follows: [], events: []}, followedUids = new Map();   // Bands folgen: uid -> [Bands]
 const state = {
   q: "", range: store.get("range", "all"), city: store.get("city", ""), onlyNew: false,
@@ -331,16 +337,16 @@ function rangeBounds() {
   return [t, null];
 }
 
-function visible() {
+function visible(src = events) {
   const [a, b] = rangeBounds();
   const q = state.q.trim().toLowerCase();
   const nd = meta.new_badge_days || 7;
-  return events.filter(e => {
+  return src.filter(e => {
     if (state.hidden.has(e.venue_id)) return false;
     if (state.city && e.city !== state.city) return false;
     if (state.onlyNew && !e.is_new) return false;
     const d = parse(e.date), end = e.end_date ? parse(e.end_date) : d;
-    if (state.view === "list" || state.range !== "all") {
+    if (state.view !== "archive" && (state.view === "list" || state.range !== "all")) {
       if (end < a) return false;
       if (b && d > b) return false;
     }
@@ -438,7 +444,7 @@ function popBadge(e) {
 
 function evCard(e) {
   const badges = [
-    e.is_new ? `<span class="badge b-new">neu</span>` : "",
+    e.is_new && !isPast(e) ? `<span class="badge b-new">neu</span>` : "",
     e.sold_out ? `<span class="badge b-sold">ausverkauft</span>` : "",
     e.cancelled ? `<span class="badge b-cxl">abgesagt</span>` : "",
     isMember() && followedUids.has(e.uid) ? `<span class="badge b-fol" title="Du folgst: ${esc(followedUids.get(e.uid).join(", "))}">★ ${esc(followedUids.get(e.uid).join(", "))}</span>` : "",
@@ -453,7 +459,24 @@ function evCard(e) {
     <span class="time">${esc(e.time || "")}</span>
     <span class="body"><a class="t" href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.title)}</a>
     <div class="meta"><span>${esc(e.venue)}${e.city ? ", "+esc(e.city) : ""}${range}${price}</span>${badges}${popBadge(e)}${tags}</div>
-    ${markBar(e)}</span></div>`;
+    ${lineup(e)}${markBar(e)}</span></div>`;
+}
+
+const actName = a => a.name || a.query;
+function followBtn(name, short = false) {   // Band folgen (nur Angemeldete); short: nur ★/＋ (im Line-up)
+  if (!isMember()) return "";
+  const on = !!followedKey(name);
+  return `<button class="mk fol ${on?"on":""}" data-follow="${esc(name)}" title="${on ? "Nicht mehr folgen" : "Neue Shows melden"}: ${esc(name)}">${on?"★":"＋"}${short ? "" : " " + esc(name)}</button>`;
+}
+
+function lineup(e) {                        // mehrere Acts im Titel: Hauptact, darunter «mit …» (Support / weitere)
+  const acts = x(e).artists || [];
+  if (acts.length < 2) return "";
+  return `<div class="lineup">${acts.map((a, i) => {
+    const info = [a.country, (a.styles || [])[0] || (a.genres || [])[0], a.fans != null ? fans(a.fans) + " Fans" : ""].filter(Boolean).join(" · ");
+    return `<div class="act"><span class="role">${i ? "mit" : ""}</span>${i ? esc(actName(a)) : `<b>${esc(actName(a))}</b>`}
+      ${info ? `<span class="am">${esc(info)}</span>` : ""}${followBtn(actName(a), true)}</div>`;
+  }).join("")}</div>`;
 }
 
 function markBar(e) {                       // nur für Angemeldete
@@ -465,19 +488,21 @@ function markBar(e) {                       // nur für Angemeldete
   const others = marks.others[e.uid] || [];
   const friends = others.length ? `<span class="friends" title="${esc(others.map(o => o.user + (o.status==="going"?": geht hin":": interessiert")).join("\n"))}">👥 ${
     others.map(o => esc(o.user) + (o.status==="going" ? " ✓" : " ☆")).join(", ")}</span>` : "";
-  // Band folgen: erkannte Bands (höchstens 2, ohne «nichts gefunden»)
-  const bands = [...new Set((x(e).artists || []).filter(a => a.confidence !== "keine").map(a => a.name || a.query))].slice(0, 2);
-  const fol = bands.map(b => { const on = !!followedKey(b);
-    return `<button class="mk fol ${on?"on":""}" data-follow="${esc(b)}" title="${on ? "Nicht mehr folgen" : "Neue Shows dieser Band melden"}">${on?"★":"＋"} ${esc(b)}</button>`; }).join("");
+  // Band folgen: bei einem Act hier, bei mehreren im Line-up
+  const acts = x(e).artists || [];
+  const fol = acts.length === 1 && acts[0].confidence !== "keine" ? followBtn(actName(acts[0])) : "";
   return `<div class="marks">${btns}${ticket}${fol}${friends}</div>`;
 }
 
-function renderList(list) {
-  if (!list.length) return `<div class="empty">Keine Konzerte für diese Filter.</div>`;
+function renderList(list, past = false) {       // past: Archiv, neueste zuerst
+  if (!list.length) return past && !archive.length
+    ? `<div class="empty">Noch keine vergangenen Events – das Archiv füllt sich mit der Zeit (Events bleiben nach ihrem Datum gespeichert).</div>`
+    : `<div class="empty">Keine ${past ? "vergangenen " : ""}Konzerte für diese Filter.</div>`;
   const byDay = new Map();
-  list.forEach(e => { const k = e.date < todayIso && e.end_date ? todayIso : e.date; (byDay.get(k) || byDay.set(k, []).get(k)).push(e); });
+  list.forEach(e => { const k = !past && e.date < todayIso && e.end_date ? todayIso : e.date; (byDay.get(k) || byDay.set(k, []).get(k)).push(e); });
   let html = "", lastMonth = "";
-  [...byDay.keys()].sort().forEach(k => {
+  const days = [...byDay.keys()].sort();
+  (past ? days.reverse() : days).forEach(k => {
     const d = parse(k), mk = k.slice(0,7);
     if (mk !== lastMonth) {
       const n = list.filter(e => e.date.slice(0,7) === mk).length;
@@ -675,12 +700,21 @@ function render() {
     history.replaceState(null, "", mine ? "#meine" : location.pathname + location.search);
   const missing = mineGroups().noTicket.length;
   $("#mineTab").innerHTML = "Meine" + (missing ? `<span class="n" title="ohne Ticket">${missing}</span>` : "");
-  const list = visible();
-  $("#count").textContent = mine ? `${myEvents.length} markiert` : `${list.length} Event${list.length===1?"":"s"}`;
+  const past = state.view === "archive";
+  // Archiv und Monatsansicht in der Vergangenheit brauchen die vergangenen Events – einmal nachladen
+  const monthStart = new Date(state.cal.getFullYear(), state.cal.getMonth(), 1);
+  if (archive === null && (past || (state.view === "month" && monthStart <= new Date()))) {
+    archive = undefined;                      // lädt
+    api("api/events?past=1").then(a => { archive = a; render(); });
+  }
+  const list = past ? visible(archive || []) : visible(state.view === "month" && archive ? archive.concat(events) : events);
+  $("#rangeGroup").hidden = past;             // Zeitraum gilt nur für Kommendes
+  $("#count").textContent = mine ? `${myEvents.length} markiert` : `${list.length} ${past ? "vergangene " : ""}Event${list.length===1?"":"s"}`;
   document.querySelectorAll("#viewSeg button").forEach(b => b.classList.toggle("on", b.dataset.view === state.view));
   document.querySelectorAll("#sortSeg button").forEach(b => b.classList.toggle("on", b.dataset.sort === state.sort));
   $("#sortSeg").hidden = state.view !== "list" || !events.some(e => x(e).popularity != null);
-  $("#view").innerHTML = mine ? renderMine() : state.view === "month" ? renderMonth(list)
+  $("#view").innerHTML = mine ? renderMine() : past ? (archive ? renderList(list, true) : `<div class="empty">Archiv wird geladen …</div>`)
+    : state.view === "month" ? renderMonth(list)
     : state.sort === "pop" && !$("#sortSeg").hidden ? renderByPopularity(list) : renderList(list);
   if (state.view === "month") {
     $("#prevM").onclick = () => { state.cal.setMonth(state.cal.getMonth() - 1); render(); };
@@ -710,6 +744,7 @@ async function api(path, opts) {
 async function load() {
   const [m, v, e] = await Promise.all([api("api/me"), api("api/venues"), api("api/events")]);
   me = m; venues = v.venues; meta = v; events = e;
+  if (archive) archive = await api("api/events?past=1");       // nach Mitternacht kommen Events dazu
   marks = isMember() ? await api("api/marks") : {mine: {}, others: {}, share: false};
   myEvents = isMember() ? await api("api/my-events") : [];
   if (isMember() && !tgLink) tg = await api("api/telegram");
@@ -754,7 +789,7 @@ $("#allV").onclick = () => { state.hidden.clear(); store.set("hidden", []); rend
 $("#noneV").onclick = () => { venues.forEach(v => state.hidden.add(v.id)); store.set("hidden", [...state.hidden]); renderSidebar(); render(); };
 document.querySelectorAll("#viewSeg button").forEach(b => b.onclick = () => {
   state.view = b.dataset.view;
-  if (state.view !== "mine") store.set("view", state.view);      // «Meine» nur per Link/Klick, nicht als Standard
+  if (state.view === "list" || state.view === "month") store.set("view", state.view);   // «Meine»/«Archiv» nicht als Standard
   render(); window.scrollTo(0, 0);
 });
 window.addEventListener("hashchange", () => { if (location.hash === "#meine" && state.view !== "mine") { state.view = "mine"; render(); } });

@@ -29,6 +29,13 @@ er wird aus den Tags der Location (z.B. PETZI «Party», «Performance») bzw. e
 im Browser gespeichert. Locations, Suche, Typ, Genre und Popularität wirken auch auf den iCal-Link (der
 Zeitraum nicht – ein Abo soll weiterlaufen).
 
+**Line-up:** Stehen mehrere Acts im Titel («Bibi Vaplan & Support: Omisdus», «Erra + Currents»), zeigt die
+Karte darunter den Hauptact und «mit …» die weiteren – je mit Herkunft, Stil und Fans, angemeldet mit ＋ zum
+Folgen. Die Locations liefern Support-Bands nicht separat; sie werden aus dem Titel gelesen.
+
+**Archiv:** Vergangene Events bleiben gespeichert. Der Tab **Archiv** zeigt sie, neueste zuerst, mit denselben
+Filtern (ohne Zeitraum); die Monatsansicht blättert auch zurück. Das Archiv beginnt mit dem ersten Lauf.
+
 ## Login
 
 Ohne Anmeldung kann man den Kalender **nur ansehen** (inkl. allgemeinem iCal-Abo). Mit dem Knopf

@@ -35,8 +35,9 @@ def create_app(agent: Agent):
 
     def query_events(req: Request) -> list[dict]:
         p = req.query_params
-        start = date.fromisoformat(p["from"]) if p.get("from") else date.today()
-        end = date.fromisoformat(p["to"]) if p.get("to") else None
+        past = p.get("past") == "1"                   # Archiv: alles vor heute, neueste zuerst
+        start = None if past else date.fromisoformat(p["from"]) if p.get("from") else date.today()
+        end = date.today() - timedelta(days=1) if past else date.fromisoformat(p["to"]) if p.get("to") else None
         venues = [v for v in p.get("venues", "").split(",") if v] or None
         if p.get("city"):
             city_ids = [v for v, m in venue_meta.items() if m["city"].lower() == p["city"].lower()]
@@ -55,7 +56,10 @@ def create_app(agent: Agent):
             evs = [e for e in evs if genres & set(e["extra"].get("genres") or [])]
         if pops:
             evs = [e for e in evs if e["extra"].get("popularity_label") in pops]
-        return [e for e in evs if e["venue_id"] in venue_meta]
+        evs = [e for e in evs if e["venue_id"] in venue_meta]
+        if past:                                      # mehrtägige, die noch laufen, gehören nicht ins Archiv
+            evs = [e for e in evs if (e["end_date"] or e["date"]) < date.today().isoformat()][::-1]
+        return evs
 
     async def index(req):
         return FileResponse(STATIC / "index.html")
