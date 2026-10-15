@@ -150,6 +150,16 @@ erneut nachgeschlagen. Kurze oder häufige Namen («Elin», «Sports») werden o
 Band zugeordnet – mit `artists <location>` prüfen und in `config.yaml` unter `artists:` korrigieren
 (`overrides` pro Bandname, `titles` für Titel ohne echte Bandnamen), danach `artists --save`.
 
+## Bands folgen
+
+Angemeldete folgen Bands mit **＋ Bandname** beim Konzert (für die erkannten Bands) oder im Tab **Meine** unter
+«Bands, denen ich folge» per Name – auch Bands, die gerade keine Show haben. Kommende Shows stehen in «Meine»
+unter **★ Gefolgte Bands** und haben in der Liste ein ★. Neue Shows kommen per Telegram (siehe unten).
+
+Treffer: eine erkannte Band heisst so, oder der Name steht als ganze Wörter im Titel – so zählen auch
+Support-Bands («Headliner + Slope») und Events ohne Band-Infos. Gross/klein, Akzente, «The» und Satzzeichen
+spielen keine Rolle. Bei sehr allgemeinen Namen («Sports», «Kings») gibt es vereinzelt falsche Treffer.
+
 ## Telegram pro Benutzer
 
 Jeder angemeldete Benutzer kann sich selbst mit Telegram verbinden: Tab **Meine** → **Telegram verbinden**
@@ -159,6 +169,7 @@ gültig); niemand muss eine Chat-ID herausfinden. Danach wählt jeder selbst:
 - **Neue Konzerte:** Aus / Alle / Nur passende (Locations, Typ, Genre, Popularität – in der Seitenleiste
   einstellen, dann «aktuelle Filter übernehmen»)
 - **Absagen** von Konzerten, die man markiert hat
+- **Neue Shows von Bands, denen man folgt** – immer, auch bei «Aus» oder ausserhalb des Filters (abschaltbar)
 
 Trennen im Tab «Meine», mit `/stop` im Chat oder als Admin mit `user telegram-off <name>`. Wer den Bot
 blockiert, wird automatisch getrennt. Fremde, die dem Bot schreiben, bekommen nur einen kurzen Hinweis.

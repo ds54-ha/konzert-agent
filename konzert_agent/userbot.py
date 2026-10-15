@@ -14,9 +14,10 @@ import time
 
 import requests
 
+from .follows import matching
 from .kinds import event_kind
 from .models import Event
-from .notifiers import TelegramNotifier
+from .notifiers import TelegramNotifier, fmt_date
 from .store import Store
 
 log = logging.getLogger(__name__)
@@ -43,7 +44,8 @@ def matches(ev: Event, flt: dict) -> bool:
 
 def clean_prefs(body) -> dict | None:
     """Einstellungen aus dem Web prüfen; None = ungültig."""
-    if not isinstance(body, dict) or body.get("new") not in NEW_MODES or not isinstance(body.get("cancelled"), bool):
+    if not isinstance(body, dict) or body.get("new") not in NEW_MODES or not isinstance(body.get("cancelled"), bool) \
+            or not isinstance(body.get("follows", True), bool):
         return None
     flt = body.get("filter") or {}
     if not isinstance(flt, dict):
@@ -55,7 +57,7 @@ def clean_prefs(body) -> dict | None:
             return None
         if v:
             out[k] = v
-    return {"new": body["new"], "filter": out, "cancelled": body["cancelled"]}
+    return {"new": body["new"], "filter": out, "cancelled": body["cancelled"], "follows": body.get("follows", True)}
 
 
 class UserBot:
@@ -163,21 +165,41 @@ class UserBot:
 
     # ------------------------------------------------------------ Melden
 
+    def follow_messages(self, hits: list[tuple[Event, list[str]]]) -> list[str]:
+        lines = [f"⭐ <b>Neue Show{'s' if len(hits) > 1 else ''} von Bands, denen du folgst</b>"]
+        for ev, bands in sorted(hits, key=lambda h: (h[0].date, h[0].time or "")):
+            venue = self.fmt.venue_names.get(ev.venue_id, ev.venue_id)
+            lines += ["", f"<b>{html.escape(', '.join(bands))}</b>",
+                      f"• {fmt_date(ev)} · {html.escape(venue)} · <a href=\"{html.escape(ev.url)}\">"
+                      f"{html.escape(ev.title)}</a>" + (" 🔴 ausverkauft" if ev.sold_out else "")]
+        msgs, cur = [], ""
+        for line in lines:                                # in Telegram-taugliche Stücke teilen
+            if len(cur) + len(line) + 1 > self.fmt.LIMIT:
+                msgs.append(cur)
+                cur = ""
+            cur += line + "\n"
+        return msgs + [cur]
+
     def notify(self, new: list[Event], cancelled: list[Event]):
-        """Neue Konzerte nach den Einstellungen jedes Benutzers; Absagen markierter Konzerte."""
         for r in self.store.tg_recipients():
-            p = r["prefs"]
-            flt = p["filter"] if p["new"] == "filter" else {}
-            my_new = [] if p["new"] == "off" else [e for e in new if matches(e, flt)]
-            marked = self.store.marks(r["user_id"]) if p["cancelled"] else {}
-            my_cancelled = [e for e in cancelled
-                            if e.uid in marked or (p["new"] != "off" and matches(e, flt))]
-            if not (my_new or my_cancelled):
-                continue
-            for text in self.fmt.build_messages(my_new, my_cancelled):
-                try:
-                    if not self.send(r["chat_id"], text):
-                        break
-                except Exception:  # noqa: BLE001 – ein Benutzer soll die anderen nicht aufhalten
-                    log.exception("Telegram an %s fehlgeschlagen", r["username"])
-                    break
+            try:
+                self.notify_user(r, new, cancelled)
+            except Exception:  # noqa: BLE001 – ein Benutzer soll die anderen nicht aufhalten
+                log.exception("Telegram an %s fehlgeschlagen", r["username"])
+
+    def notify_user(self, r: dict, new: list[Event], cancelled: list[Event]):
+        """Zuerst neue Shows gefolgter Bands, dann neue Konzerte nach den Einstellungen; Absagen markierter Konzerte."""
+        p = r["prefs"]
+        follows = self.store.follows(r["user_id"]) if p["follows"] else {}
+        hits = [(e, b) for e in new if (b := matching(e.title, e.extra, follows))] if follows else []
+        flt = p["filter"] if p["new"] == "filter" else {}
+        seen = {e.uid for e, _ in hits}                   # nicht nochmals in der allgemeinen Liste
+        my_new = [] if p["new"] == "off" else [e for e in new if e.uid not in seen and matches(e, flt)]
+        marked = self.store.marks(r["user_id"]) if p["cancelled"] else {}
+        my_cancelled = [e for e in cancelled if e.uid in marked or (p["new"] != "off" and matches(e, flt))]
+        texts = self.follow_messages(hits) if hits else []
+        if my_new or my_cancelled:
+            texts += self.fmt.build_messages(my_new, my_cancelled)
+        for text in texts:
+            if not self.send(r["chat_id"], text):
+                break

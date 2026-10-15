@@ -73,6 +73,13 @@ CREATE TABLE IF NOT EXISTS tg_codes (  -- Einmal-Codes für «Telegram verbinden
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     expires TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS follows (   -- Bands, denen ein Benutzer folgt (Schlüssel: normalisierter Name)
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    key     TEXT NOT NULL,
+    name    TEXT NOT NULL,             -- wie eingegeben / erkannt, zur Anzeige
+    created TEXT NOT NULL,
+    PRIMARY KEY (user_id, key)
+);
 CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
     value TEXT
@@ -212,6 +219,7 @@ class Store:
             self.db.execute("DELETE FROM marks WHERE user_id=?", (user_id,))
             self.db.execute("DELETE FROM tg_chats WHERE user_id=?", (user_id,))
             self.db.execute("DELETE FROM tg_codes WHERE user_id=?", (user_id,))
+            self.db.execute("DELETE FROM follows WHERE user_id=?", (user_id,))
             self.db.execute("DELETE FROM users WHERE id=?", (user_id,))
 
     def create_session(self, token_hash: str, user_id: int, days: int):
@@ -252,11 +260,30 @@ class Store:
         with self.lock:
             return self.db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
 
+    # ------------------------------------------------------------ Bands folgen
+
+    def follow(self, user_id: int, key: str, name: str):
+        with self.lock, self.db:
+            self.db.execute("INSERT INTO follows (user_id, key, name, created) VALUES (?,?,?,?)"
+                            " ON CONFLICT(user_id, key) DO NOTHING", (user_id, key, name, _now()))
+
+    def unfollow(self, user_id: int, key: str) -> bool:
+        with self.lock, self.db:
+            return self.db.execute("DELETE FROM follows WHERE user_id=? AND key=?", (user_id, key)).rowcount > 0
+
+    def follows(self, user_id: int) -> dict[str, str]:
+        """Schlüssel -> Name, alphabetisch."""
+        with self.lock:
+            rows = self.db.execute("SELECT key, name FROM follows WHERE user_id=? ORDER BY name COLLATE NOCASE",
+                                   (user_id,)).fetchall()
+        return {r["key"]: r["name"] for r in rows}
+
     # ------------------------------------------------------------ Telegram pro Benutzer
 
     # new: off | all | filter (nur Events, die zum gespeicherten Filter passen)
     # cancelled: Absagen von Konzerten melden, die man markiert hat
-    TG_PREFS = {"new": "all", "filter": {}, "cancelled": True}
+    # follows: neue Shows gefolgter Bands immer melden (auch bei new=off oder ausserhalb des Filters)
+    TG_PREFS = {"new": "all", "filter": {}, "cancelled": True, "follows": True}
 
     def tg_new_code(self, user_id: int, code: str, minutes: int):
         now = datetime.now()

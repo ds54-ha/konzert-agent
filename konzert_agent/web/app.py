@@ -15,6 +15,7 @@ from starlette.staticfiles import StaticFiles
 from .. import __version__
 from ..agent import Agent
 from ..auth import new_token
+from ..follows import follow_key, matching
 from ..kinds import event_kind
 from ..userbot import clean_prefs
 from .security import AuthMiddleware, login_routes
@@ -202,6 +203,38 @@ def create_app(agent: Agent):
             return JSONResponse({"error": f"Senden fehlgeschlagen: {type(e).__name__}"}, 502)
         return JSONResponse({"ok": ok} if ok else {"error": "Chat nicht erreichbar (Bot blockiert?) – Verbindung gelöst"})
 
+    def follows_state(user_id: int) -> dict:
+        """Gefolgte Bands + ihre kommenden Shows (für Dashboard und ★ in der Liste)."""
+        follows = agent.store.follows(user_id)
+        evs = []
+        if follows:
+            for e in agent.filtered_events(agent.store.events(start=date.today())):
+                if e["venue_id"] in venue_meta and (bands := matching(e["title"], e["extra"], follows)):
+                    e["follows"] = bands
+                    evs.append(e)
+        return {"follows": [{"key": k, "name": n} for k, n in follows.items()], "events": decorate(evs)}
+
+    async def api_follows(req):
+        """GET: gefolgte Bands + kommende Shows. POST {name}: folgen. DELETE /api/follows/<key>: entfolgen."""
+        u = req.state.user
+        if u is None:
+            return JSONResponse({"error": "Nicht angemeldet"}, 401)
+        if req.method == "POST":
+            try:
+                name = (await req.json()).get("name")
+            except (ValueError, AttributeError):
+                name = None
+            name = " ".join(name.split()) if isinstance(name, str) else ""
+            key = follow_key(name)
+            if len(key) < 2 or len(name) > 100:
+                return JSONResponse({"error": "Ungültiger Bandname"}, 400)
+            if len(agent.store.follows(u["id"])) >= 500:
+                return JSONResponse({"error": "Zu viele Bands"}, 400)
+            agent.store.follow(u["id"], key, name)
+        elif req.method == "DELETE":
+            agent.store.unfollow(u["id"], req.path_params.get("key", ""))
+        return JSONResponse(follows_state(u["id"]))
+
     async def personal_ics(req):
         """Kalender-Abo mit geheimem Token – Kalender-Apps können sich nicht anmelden.
         Standard: die eigenen markierten Konzerte (?status=going nur «Gehe hin»); ?all=1 = alle Events wie
@@ -298,6 +331,8 @@ def create_app(agent: Agent):
         Route("/api/marks/{uid:path}", api_mark, methods=["PUT", "DELETE"]),
         Route("/api/settings", api_settings, methods=["PUT"]),
         Route("/api/ical-token", api_new_ical, methods=["POST"]),
+        Route("/api/follows", api_follows, methods=["GET", "POST"]),
+        Route("/api/follows/{key}", api_follows, methods=["DELETE"]),
         Route("/api/telegram", api_telegram, methods=["GET", "PUT", "DELETE"]),
         Route("/api/telegram/link", api_telegram_link, methods=["POST"]),
         Route("/api/telegram/test", api_telegram_test, methods=["POST"]),

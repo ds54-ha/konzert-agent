@@ -59,7 +59,10 @@
   - [x] Selbst verbinden über eigenen Bot: Einmal-Link `t.me/<bot>?start=<code>`, Long-Polling (kein Webhook)
   - [x] Pro Benutzer: neue Konzerte Aus / Alle / Nur passende (gespeicherter Filter), Absagen markierter Konzerte
   - [x] Trennen im Web, mit /stop oder `user telegram-off`; blockierter Bot trennt automatisch
-- [ ] 10. Bands folgen → Telegram-Meldung bei neuer Show
+- [x] 10. Bands folgen → Telegram-Meldung bei neuer Show (v1.12.0)
+  - [x] Folgen per ＋ beim Konzert oder per Name im Tab «Meine»; ★ in der Liste, «★ Gefolgte Bands» im Dashboard
+  - [x] Treffer über erkannte Bands oder Name als ganze Wörter im Titel (auch Support-Bands)
+  - [x] Telegram: «⭐ Neue Show …» immer (auch bei «Aus»), abschaltbar; nicht doppelt in der allgemeinen Liste
 
 ## Später
 

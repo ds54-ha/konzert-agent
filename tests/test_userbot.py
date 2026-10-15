@@ -61,7 +61,7 @@ class UserBotTests(MemberBase):
         st = self.req("GET", "/api/telegram", self.c_anna)["json"]
         self.assertTrue(st["linked"])
         self.assertEqual(st["chat"], "Anna (@anna_m)")
-        self.assertEqual(st["prefs"], {"new": "all", "filter": {}, "cancelled": True})
+        self.assertEqual(st["prefs"], {"new": "all", "filter": {}, "cancelled": True, "follows": True})
         # Code nur einmal gültig – ein anderer Chat kann ihn nicht nochmals verwenden
         self.bot.handle(start("999", f"/start {code}"))
         self.assertIn("abgelaufen", self.tg.sent[-1][1])
@@ -92,7 +92,8 @@ class UserBotTests(MemberBase):
         self.assertEqual(bad["status"], 400)
         r = self.req("PUT", "/api/telegram", self.c_anna,
                      {"new": "filter", "cancelled": False, "filter": {"venues": ["kiff"], "genres": [], "x": 1}})
-        self.assertEqual(r["json"]["prefs"], {"new": "filter", "filter": {"venues": ["kiff"]}, "cancelled": False})
+        self.assertEqual(r["json"]["prefs"], {"new": "filter", "filter": {"venues": ["kiff"]}, "cancelled": False,
+                                              "follows": True})
         self.req("DELETE", "/api/telegram", self.c_anna)
         self.assertIn("Getrennt", self.tg.sent[-1][1])
         self.assertFalse(self.req("GET", "/api/telegram", self.c_anna)["json"]["linked"])
@@ -158,4 +159,30 @@ class UserBotTests(MemberBase):
     def test_clean_prefs(self):
         self.assertIsNone(clean_prefs({"new": "all"}))
         self.assertIsNone(clean_prefs({"new": "all", "cancelled": True, "filter": {"venues": "kiff"}}))
-        self.assertEqual(clean_prefs({"new": "all", "cancelled": True}), {"new": "all", "filter": {}, "cancelled": True})
+        self.assertEqual(clean_prefs({"new": "all", "cancelled": True}),
+                         {"new": "all", "filter": {}, "cancelled": True, "follows": True})
+        self.assertIsNone(clean_prefs({"new": "all", "cancelled": True, "follows": "ja"}))
+
+    def test_followed_bands_always_reported(self):
+        self.link(self.c_anna, "111")
+        self.req("PUT", "/api/telegram", self.c_anna, {"new": "off", "cancelled": True})
+        self.req("POST", "/api/follows", self.c_anna, {"name": "Slope"})
+        today = date.today()
+        hit = Event("kiff", "20", "Headliner + Slope", today + timedelta(days=20))
+        miss = Event("kiff", "21", "Andere Band", today + timedelta(days=21))
+        self.tg.sent.clear()
+        self.bot.notify([hit, miss], [])
+        self.assertEqual(len(self.tg.sent), 1)                  # «Aus»: nur die gefolgte Band
+        self.assertIn("⭐", self.tg.sent[0][1])
+        self.assertIn("<b>Slope</b>", self.tg.sent[0][1])
+        self.assertNotIn("Andere Band", self.tg.sent[0][1])
+        # «Alle»: gefolgte Band nicht doppelt in der allgemeinen Liste
+        self.req("PUT", "/api/telegram", self.c_anna, {"new": "all", "cancelled": True})
+        self.tg.sent.clear()
+        self.bot.notify([hit, miss], [])
+        self.assertEqual([t.count("Headliner + Slope") for _, t in self.tg.sent], [1, 0])
+        # abgeschaltet -> nur noch die allgemeine Liste
+        self.req("PUT", "/api/telegram", self.c_anna, {"new": "off", "cancelled": True, "follows": False})
+        self.tg.sent.clear()
+        self.bot.notify([hit], [])
+        self.assertEqual(self.tg.sent, [])
