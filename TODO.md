@@ -83,6 +83,15 @@
 - [x] 12. Archiv: vergangene Events anschauen (Events werden nicht gelöscht, die DB füllt sich ab 2026-10-14) (v1.13.0)
   - Tab «Archiv» (neueste zuerst, Filter ohne Zeitraum, auch für Gäste); Monatsansicht blättert zurück
   - [ ] auch einen "Von-Bis"Filter im Archiv
+- [ ] 15. Verschobene/verlegte Events («Verschoben», «Verlegt», «Neues Datum») nicht als ABGESAGT führen, sondern
+      als eigener Status VERSCHOBEN
+  - Aussehen wie abgesagt (durchgestrichen), aber mit Hinweis, wohin bzw. auf wann (z.B. «→ verlegt ins Dynamo»,
+    «→ neu am 13.04.2027»), soweit die Quelle das liefert
+  - Heute als abgesagt markiert: Komplex 457 «Verlegt» (Ziel steht in `postponed_info`), The Hall «… in eine andere
+    Location verlegt»; heute nur aus dem Titel entfernt: «VERSCHOBEN!», «Neues Datum» (`split_status`, z.B. Halle 622);
+    Moods liefert `isPostponed`
+  - Auch in iCal (nicht `STATUS:CANCELLED`) und Telegram (eigene Meldung statt «❌ Abgesagt»); die Absage-Meldung
+    für markierte Konzerte sinngemäss auch für Verschiebungen
 
 Reihenfolge (2026-10-14): zuerst 6 (erledigt), dann 4 (erledigt).
 Reihenfolge (2026-10-15): 7 + 8 zusammen, dann 9 → 10, danach 11 und 12.
