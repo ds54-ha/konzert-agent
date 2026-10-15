@@ -151,12 +151,242 @@ venues:
     url: https://nordportal.ch/programm/all
     options: {kinds: [Liveshow]}    # [Liveshow, Party, Sonstiges] für alles
 
+  - id: volkshaus
+    name: Volkshaus
+    city: Zürich
+    type: volkshaus
+    url: https://www.volkshaus.ch/veranstaltungen
+    options: {kinds: [Konzert]}     # weitere: Comedy, Theater, Vortrag, Lesung, Podcast … ([] = alle)
+
+  - id: komplex457
+    name: Komplex 457
+    city: Zürich
+    type: komplex457                # über die API der Website (Base44)
+    exclude: ["Party"]
+
+  - id: thehall
+    name: The Hall
+    city: Dübendorf
+    type: thehall
+    url: https://www.thehall.ch/de/eventkalender/
+    exclude: ["Comedy", "Edutainment", "Musical"]
+
+  - id: halle622
+    name: Halle 622
+    city: Zürich
+    type: css
+    url: https://www.halle622.ch/622/de/events.html
+    exclude: ["Art Salon", "TrauDich", "Musical", "Nussknacker", "Frozen", "Ballet"]
+    options:
+      item: ".entity.event"
+      title: "h3"
+      date: ".event-text p"
+      link: "a"
+
+  - id: moods
+    name: Moods
+    city: Zürich
+    type: moods
+    url: https://www.moods.ch/
+    options: {kinds: [Konzert]}     # weitere: Late_Night, Afterparty, Kinderkonzert
+
+  - id: plaza
+    name: Plaza
+    city: Zürich
+    type: plaza
+    url: https://www.plaza-zurich.ch/program/liveshows/
+    exclude: ["Comedy", "Burlesque", "Sendung des Monats"]
+
+  - id: kaufleuten
+    name: Kaufleuten
+    city: Zürich
+    type: kaufleuten
+    url: https://kaufleuten.ch/events/kultur/
+    options: {kinds: [Konzert]}     # weitere: Literatur, Comedy, Podcast ([] = alle)
+
+  - id: papiersaal
+    name: Papiersaal
+    city: Zürich
+    type: css
+    url: https://www.papiersaal.ch/
+    exclude: ["Party", "Literatur", "Tanznacht", "80s Forever", "Hit Fabrik"]
+    options:
+      item: ".single-act"
+      title: "h2"
+      date: "h3"
+      time: "i"
+      link: "h2 a"
+      tags: "q"
+      support: "p"
+
+  - id: rotefabrik
+    name: Rote Fabrik
+    city: Zürich
+    type: petzi
+    options: {organiser: 25}
+
+  - id: mehrspur
+    name: Mehrspur
+    city: Zürich
+    type: petzi
+    options: {organiser: 521349}
+
+  - id: planet5
+    name: Planet 5
+    city: Zürich
+    type: petzi
+    options: {organiser: 180}
+
+  - id: zentralwaescherei
+    name: Zentralwäscherei
+    city: Zürich
+    type: petzi
+    options: {organiser: 370368}
+
+  # --- Winterthur ---
+  - id: gaswerk
+    name: Gaswerk
+    city: Winterthur
+    type: petzi
+    options: {organiser: 65}
+
+  - id: kraftfeld
+    name: Kraftfeld
+    city: Winterthur
+    type: petzi
+    options: {organiser: 22}
+
+  - id: salzhaus
+    name: Salzhaus
+    city: Winterthur
+    type: salzhaus
+    url: https://www.salzhaus.ch/
+    options: {kinds: [Live]}        # weitere: Party, Spass, Ü30, Ü16 ([] = alle)
+
+  - id: albani
+    name: Albani
+    city: Winterthur
+    type: albani
+    url: https://www.albani.ch/
+    exclude: ["Club", "PubQuiz", "Karaoke", "Poetry Slam", "Kinderdisco"]   # Clubnächte (ab 22 Uhr) ausblenden
+
+  # --- Aargau (weitere) ---
+  - id: floesserplatz
+    name: Flösserplatz
+    city: Aarau
+    type: petzi
+    options: {organiser: 92}
+
+  - id: boeroem
+    name: Böröm pöm pöm
+    city: Oberentfelden
+    type: petzi
+    options: {organiser: 35}
+
+  - id: oxil
+    name: OXIL
+    city: Zofingen
+    type: petzi
+    options: {organiser: 17}
+
+  - id: meck
+    name: Meck
+    city: Frick
+    type: petzi
+    options: {organiser: 268293}
+
   # --- Bern / Basel ---
   - id: oldcapitol
     name: Old Capitol
     city: Langenthal
     type: petzi
     options: {organiser: 268307}
+
+  - id: bierhuebeli
+    name: Bierhübeli
+    city: Bern
+    type: bierhuebeli
+    url: https://bierhuebeli.ch/konzerte/
+    exclude: ["Comedy", "Gourmet", "PUB QUIZ", "Party"]
+
+  - id: muehlehunziken
+    name: Mühle Hunziken
+    city: Rubigen
+    type: muehlehunziken
+    url: https://www.muehlehunziken.ch/
+    exclude: ["Party", "Beziehungskosmos", "Comedy"]
+
+  - id: dachstock
+    name: Dachstock
+    city: Bern
+    type: petzi
+    options: {organiser: 51}
+
+  - id: gaskessel
+    name: Gaskessel
+    city: Bern
+    type: petzi
+    options: {organiser: 181}
+
+  - id: isc
+    name: ISC
+    city: Bern
+    type: petzi
+    options: {organiser: 44}
+
+  - id: beeflat
+    name: Bee-flat im PROGR
+    city: Bern
+    type: petzi
+    options: {organiser: 88}
+
+  - id: roessli
+    name: Rössli
+    city: Bern
+    type: petzi
+    options: {organiser: 221}
+
+  - id: kairo
+    name: Café Kairo
+    city: Bern
+    type: petzi
+    options: {organiser: 192}
+
+  - id: kufa
+    name: KUFA
+    city: Lyss
+    type: petzi
+    options: {organiser: 52}
+
+  - id: sommercasino
+    name: Sommercasino
+    city: Basel
+    type: petzi
+    options: {organiser: 493019}
+
+  - id: kuppel
+    name: Kuppel
+    city: Basel
+    type: petzi
+    options: {organiser: 475292}
+
+  - id: sudhaus
+    name: Sudhaus
+    city: Basel
+    type: petzi
+    options: {organiser: 342014}
+
+  - id: gannet
+    name: Gannet
+    city: Basel
+    type: petzi
+    options: {organiser: 323978}
+
+  - id: hirscheneck
+    name: Hirscheneck
+    city: Basel
+    type: petzi
+    options: {organiser: 327140}
 
   - id: z7
     name: Z7 Konzertfabrik
@@ -186,7 +416,117 @@ venues:
       link: "a.viz-event-box-details-link"
       tags: ".viz-event-genre"
 
+  - id: sedel
+    name: Sedel
+    city: Emmenbrücke
+    type: petzi
+    options: {organiser: 58}
+
+  - id: neubad
+    name: Neubad
+    city: Luzern
+    type: petzi
+    options: {organiser: 222}
+
+  - id: treibhaus
+    name: Treibhaus
+    city: Luzern
+    type: petzi
+    options: {organiser: 26}
+
+  - id: kulturwerk118
+    name: Kulturwerk 118
+    city: Sursee
+    type: petzi
+    options: {organiser: 7}
+
+  # --- Ostschweiz ---
+  - id: grabenhalle
+    name: Grabenhalle
+    city: St. Gallen
+    type: petzi
+    options: {organiser: 104}
+
+  - id: palace
+    name: Palace
+    city: St. Gallen
+    type: petzi
+    options: {organiser: 119}
+
+  - id: flon
+    name: Flon
+    city: St. Gallen
+    type: petzi
+    options: {organiser: 563304}
+
+  - id: kammgarn
+    name: Kammgarn
+    city: Schaffhausen
+    type: petzi
+    options: {organiser: 19}
+
+  - id: taptab
+    name: TapTab
+    city: Schaffhausen
+    type: petzi
+    options: {organiser: 164}
+
+  - id: kaff
+    name: KAFF
+    city: Frauenfeld
+    type: petzi
+    options: {organiser: 81}
+
+  - id: eisenwerk
+    name: Eisenwerk
+    city: Frauenfeld
+    type: petzi
+    options: {organiser: 87}
+
+  - id: horstklub
+    name: Horstklub
+    city: Kreuzlingen
+    type: petzi
+    options: {organiser: 268302}
+
+  # --- Fribourg / Biel ---
+  - id: frison
+    name: Fri-Son
+    city: Fribourg
+    type: petzi
+    options: {organiser: 29}
+
+  - id: badbonn
+    name: Bad Bonn
+    city: Düdingen
+    type: petzi
+    options: {organiser: 33}
+
+  - id: lesinge
+    name: Le Singe (Kartell Culturel)
+    city: Biel
+    type: petzi
+    options: {organiser: 200}
+
+  - id: ajz
+    name: AJZ / Chessu
+    city: Biel
+    type: petzi
+    options: {organiser: 421232}
+
   # --- Solothurn ---
+  - id: schuetzi
+    name: Schützi
+    city: Olten
+    type: css                       # nur «Schützi Live» (eigene Konzerte); Fremdveranstaltungen laufen über Eventfrog
+    url: https://schuetzi-olten.ch/schuetzi-programm/schuetzi-live
+    options:
+      item: ".article-introtext"
+      title: "h1"
+      date: "h5"
+      time: "h5"                    # Türöffnung
+      link: ".readmore a"
+
   - id: kofmehl
     name: Kulturfabrik Kofmehl
     city: Solothurn

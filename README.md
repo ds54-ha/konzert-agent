@@ -129,7 +129,9 @@ Ticketcorner-Seiten) liefern das automatisch. Einfach URL eintragen und mit `tes
 **3. iCal-Feed** (`type: ical`) – falls die Location einen `.ics`-Link anbietet.
 
 **4. CSS-Selektoren** (`type: css`) – für jede andere HTML-Liste. Im Browser per Rechtsklick →
-«Untersuchen» die Elemente bestimmen; Beispiel siehe `config.yaml`.
+«Untersuchen» die Elemente bestimmen; Beispiel siehe `config.yaml` (z.B. Papiersaal, Halle 622).
+«Ausverkauft», «Sold out!», «Abgesagt» am Titelende werden automatisch als Status erkannt; mit
+`support: "<Selektor>"` wird eine Zeile «Support: …» an den Titel gehängt (für die Band-Erkennung).
 
 **5. Eigene Python-Quelle** – für knifflige Seiten. Vorlage: `plugins/beispiel_quelle.py`,
 dann in `config.yaml` unter `plugins:` eintragen. Eine Quelle ist eine Klasse mit `parse(html)`,
@@ -218,7 +220,9 @@ erkennbarer User-Agent). Diese Anfragen laufen darum ohne robots-Prüfung, aber 
 
 ## Hinweise
 
-- Die Scraper für **Exil**, **Hallenstadion**, **X-tra**, **Z7** und **Schüür** lesen die
+- Die Scraper für **Exil**, **Hallenstadion**, **X-tra**, **Z7**, **Schüür**, **Volkshaus**, **The Hall**,
+  **Halle 622**, **Plaza**, **Kaufleuten**, **Papiersaal**, **Salzhaus**, **Albani**, **Bierhübeli**, **Mühle Hunziken**
+  und **Schützi** lesen die
   HTML-Struktur der Seiten; ändert sich das Layout, meldet der Kalender bei der Location «⚠ Fehler»
   bzw. 0 Events → mit `test <id>` prüfen.
 - Hallenstadion zeigt auf der Übersicht nur 12 Events; der Scraper lädt die weiteren Seiten über den
@@ -231,6 +235,17 @@ erkennbarer User-Agent). Diese Anfragen laufen darum ohne robots-Prüfung, aber 
   werden gar nicht geladen. Kategorien (Konzert, Metal, Hip-Hop …) werden zu Tags.
 - **Nordportal** lädt sein Programm per JavaScript aus einer WordPress-API (`npwp.kailua.ch`); der
   Scraper fragt dieselbe API ab. Standard: nur Liveshows (`kinds` in config.yaml).
+- **Komplex 457** ist eine App, die ihr Programm aus einer öffentlichen Base44-API lädt (`base44.app`); der
+  Scraper fragt dieselbe API ab. Status «Verlegt» (meist in eine grössere Halle) zählt als abgesagt.
+- **Moods** liefert das ganze Programm als JSON in der Seite mit (Next.js `__NEXT_DATA__`), inkl. Genres,
+  ausverkauft/abgesagt. Standard: nur Konzerte (`kinds`).
+- **Volkshaus**, **Kaufleuten**, **Salzhaus**: gemischte Programme – `kinds` in config.yaml wählt die Sparten
+  (Standard: nur Konzerte bzw. «Live»). **Albani** trennt Konzerte und Clubnächte nicht; was ab 22 Uhr beginnt,
+  bekommt den Tag «Club» (in config.yaml per `exclude` ausgeblendet).
+- **Schützi** (Olten): nur die eigenen Konzerte («Schützi Live»); Fremdveranstaltungen verkauft die Schützi
+  über Eventfrog und listet sie nicht selbst.
+- Neue PETZI-Locations brauchen beim ersten Lauf etwas Zeit: Für jedes neue Event wird die Detailseite
+  (Genre, Beginn) geladen, mit 2 s Pause pro Anfrage an petzi.ch.
 - Wenn `./data` nicht beschreibbar ist (Container läuft als UID 1000): `sudo chown 1000 data`.
 
 ## Tests

@@ -13,11 +13,12 @@ from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
 
-from .base import Source, register, parse_dotted_date, parse_time, month_from_name, infer_year, clean
+from .base import (Source, register, parse_dotted_date, parse_time, month_from_name, infer_year, full_year, clean,
+                   split_status, with_support)
 from ..models import Event
 
-_DMY_WORD = re.compile(r"(\d{1,2})\.?\s+([A-Za-zäéû]{3,})\.?\s+(\d{4})")
-_DM_SHORT = re.compile(r"(\d{1,2})\.(\d{1,2})\.(?!\d)")
+_DMY_WORD = re.compile(r"(\d{1,2})\.?\s+([A-Za-zäéû]{3,})\.?\s+(\d{4}|\d{2}(?!\d))")    # «16. Okt 26» auch
+_DM_SHORT = re.compile(r"(\d{1,2})\.(\d{1,2})\b\.?(?![\d.])")                         # «Fr 16.10.», «Fr 16.10»
 
 
 def parse_any_date(text: str, fmt: str | None = None) -> tuple[date, date | None] | None:
@@ -35,9 +36,9 @@ def parse_any_date(text: str, fmt: str | None = None) -> tuple[date, date | None
         return r
     m = _DMY_WORD.search(text)
     if m and month_from_name(m.group(2)):
-        return date(int(m.group(3)), month_from_name(m.group(2)), int(m.group(1))), None
+        return date(full_year(int(m.group(3))), month_from_name(m.group(2)), int(m.group(1))), None
     m = _DM_SHORT.search(text)               # "Fr 16.10." ohne Jahr
-    if m:
+    if m and 1 <= int(m.group(2)) <= 12:
         d, mo = int(m.group(1)), int(m.group(2))
         return date(infer_year(d, mo), mo, d), None
     return None
@@ -142,6 +143,9 @@ class CssSource(Source):
           time: ".time"                # optional
           link: "a"                    # optional, sonst erstes <a>
           tags: ".genre"               # optional, mehrere Treffer erlaubt
+          support: "p"                 # optional: Zeile mit «Support: …» -> an den Titel angehängt
+
+    «Ausverkauft», «Sold out!», «Abgesagt» am Titelende werden entfernt und als Status übernommen.
     """
 
     def parse(self, html: str) -> list[Event]:
@@ -162,12 +166,15 @@ class CssSource(Source):
                 link = item
             url = urljoin(self.cfg.url, link["href"]) if link and link.has_attr("href") else self.cfg.url
             time_el = item.select_one(sel["time"]) if sel.get("time") else None
-            title = clean(title_el.get_text(" "))
+            title, sold_out, cancelled = split_status(clean(title_el.get_text(" ")))
+            if sel.get("support"):
+                title = with_support(title, *(el.get_text(" ") for el in item.select(sel["support"])))
             ev = self.make_event(
                 native_id=url if url != self.cfg.url else f"{title}|{d[0]}",
                 title=title, date=d[0], end_date=d[1], url=url,
                 time=parse_time(time_el.get_text(" ")) if time_el else None,
                 tags=[clean(t.get_text()) for t in item.select(sel["tags"])] if sel.get("tags") else [],
+                sold_out=sold_out, cancelled=cancelled,
             )
             out.setdefault(ev.native_id, ev)
         return list(out.values())

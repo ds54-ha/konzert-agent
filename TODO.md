@@ -37,6 +37,18 @@
   - X-tra erlaubt Bots inzwischen (robots.txt «Allow: /»)
   - [x] Dynamo: alle Events über die Drupal-JSON:API (dynamo.nodehive.app) statt nur ~6 Wochen; nur die
         nötigen Felder abgefragt (`fields[...]`), Veranstalter-Kontaktdaten werden nicht geladen (v1.14.0)
+- [x] 14. Mehr Locations im 2-h-Umkreis (v1.15.0)
+  - Zürich: Volkshaus, Komplex 457 (Base44-API), The Hall (Dübendorf), Halle 622, Moods (JSON in der Seite),
+    Plaza, Kaufleuten, Papiersaal (`css`); PETZI: Rote Fabrik, Mehrspur, Planet 5, Zentralwäscherei
+  - Winterthur: Salzhaus, Albani (eigene Scraper); PETZI: Gaswerk, Kraftfeld
+  - PETZI: Flösserplatz, Böröm pöm pöm, OXIL, Meck · Bern: Bierhübeli (eigener Scraper), Dachstock, Gaskessel,
+    ISC, Bee-flat, Rössli, Café Kairo, KUFA Lyss · Basel: Sommercasino, Kuppel, Sudhaus, Gannet, Hirscheneck ·
+    Luzern: Sedel, Neubad, Treibhaus, Kulturwerk 118 · Ostschweiz: Grabenhalle, Palace, Flon, Kammgarn, TapTab,
+    KAFF, Eisenwerk, Horstklub · Fribourg/Biel: Fri-Son, Bad Bonn, Le Singe, AJZ
+  - Mühle Hunziken (Rubigen, eigener Scraper), Schützi Olten (`css`, nur «Schützi Live»)
+  - [ ] Noch offen (eigene Seiten, keine API gefunden): Kaserne Basel, Atlantis, Volkshaus Basel,
+        St. Jakobshalle, Südpol, Galvanik Zug, Kugl, Mokka Thun;
+        Rote Fabrik hat auf PETZI nur wenige Events (eigene Seite prüfen)
 - [ ] 13. statt nur locations auch Bandseiten direkt, um Touranouncement abzufangen und die Daten einzupflegen
 ## Layout & Bedienung
 

@@ -11,8 +11,9 @@ from zoneinfo import ZoneInfo
 
 from bs4 import BeautifulSoup
 
-from .base import Source, register, parse_dotted_date, parse_time, month_from_name, clean
-from .generic import CssSource
+from .base import (Source, register, parse_dotted_date, parse_time, month_from_name, infer_year, clean, split_status,
+                   with_support)
+from .generic import CssSource, parse_any_date
 from ..models import Event
 
 log = logging.getLogger(__name__)
@@ -216,3 +217,293 @@ class NordportalSource(Source):
                 tags=[kind], sold_out=bool(acf.get("ist_ausverkauft")),
                 cancelled=bool(re.search(r"abgesagt|cancelled", title, re.I))))
         return out
+
+
+def _wanted(kind: str, kinds) -> bool:
+    """Option `kinds`: Liste von Event-Arten (Gross/klein egal), [] = alle."""
+    return not kinds or kind.lower() in {k.lower() for k in kinds}
+
+
+@register("volkshaus")
+class VolkshausSource(Source):
+    """volkshaus.ch/veranstaltungen – Zürich. Monatsüberschriften («OKTOBER 2026») liefern das Jahr; pro Zeile
+    Tag, Titel, Art + Zeit («KONZERT 20:00 Uhr»), Saal, Ticket-Link und ggf. «AUSVERKAUFT».
+
+    Option `kinds`: Event-Arten (Konzert, Comedy, Theater, Vortrag …), Standard: nur Konzerte; [] = alle."""
+
+    def parse(self, html: str) -> list[Event]:
+        soup = BeautifulSoup(html, "lxml")
+        kinds = self.opt("kinds", ["Konzert"])
+        year, out = None, {}
+        for el in soup.select(".month-title, .event-item"):
+            if "month-title" in el["class"]:
+                m = re.search(r"\d{4}", el.get_text())
+                year = int(m.group()) if m else None
+                continue
+            cols = el.find_all("div", recursive=False)
+            if len(cols) < 2:
+                continue
+            day = re.search(r"(\d{1,2})\.(\d{1,2})\.", cols[0].get_text(" "))
+            lines = [clean(sp.get_text(" ")) for sp in cols[1].find_all("span", recursive=False)]
+            if not day or len(lines) < 2:
+                continue
+            kind = re.sub(r"\s*\d{1,2}[:.]\d{2}.*$", "", lines[1]).strip()
+            if not _wanted(kind, kinds):
+                continue
+            d, mo = int(day.group(1)), int(day.group(2))
+            ticket = next((a["href"].strip() for a in cols[1].find_all("a", href=True) if "ticket" in a.get_text().lower()), "")
+            title, sold, cancelled = split_status(lines[0])
+            out.setdefault(el["data-event-id"], self.make_event(
+                native_id=el["data-event-id"], title=title, date=date(year or infer_year(d, mo), mo, d),
+                time=parse_time(lines[1]), url=ticket or self.cfg.url, tags=[kind.capitalize()] if kind else [],
+                sold_out=sold or "AUSVERKAUFT" in cols[1].get_text(), cancelled=cancelled))
+        return list(out.values())
+
+
+@register("komplex457")
+class Komplex457Source(Source):
+    """komplex-457.ch – die Seite ist eine App, die ihr Programm aus einer öffentlichen Base44-API lädt
+    (dieselbe Abfrage macht der Browser). Status: Aktiv / Ausverkauft / Abgesagt / Verlegt – «Verlegt» heisst
+    meist in eine andere Halle (Dynamo, Halle 622) und gilt hier darum als abgesagt."""
+
+    API = "https://base44.app/api/apps/68d4063c05f4a36a19b01270/entities/Event"
+
+    def fetch(self) -> list[Event]:
+        q = {"q": json.dumps({"is_draft": False, "is_archived": False}), "sort": "date", "limit": 500}
+        return self.parse(self.fetcher.get(f"{self.API}?{urlencode(q)}"))
+
+    def parse(self, text: str) -> list[Event]:
+        out = []
+        for e in json.loads(text):
+            if e.get("is_draft") or e.get("is_archived") or e.get("is_sample") or not e.get("date"):
+                continue
+            start = datetime.fromisoformat(e["date"])
+            if start.date() < date.today() - timedelta(days=1):
+                continue
+            title = clean(e.get("artist") or e.get("name") or "")
+            support = [s for s in e.get("support_acts") or [] if s]
+            status = (e.get("status") or "").lower()
+            out.append(self.make_event(
+                native_id=e["id"], title=f"{title} & Support: {', '.join(support)}" if support else title,
+                date=start.date(), time=f"{start:%H:%M}", url=f"https://komplex-457.ch/EventDetail?id={e['id']}",
+                tags=[t.strip() for t in re.split(r"[,/]", e.get("genre") or "") if t.strip()],
+                sold_out=status == "ausverkauft", cancelled=status in ("abgesagt", "verlegt")))
+        return out
+
+
+@register("thehall")
+class TheHallSource(Source):
+    """thehall.ch/de/eventkalender/ – Dübendorf. Kacheln mit Datum («11. November 2026»), Titel und Hinweisen
+    («ausverkauft», «abgesagt», «verlegt»); die Genres stehen als CSS-Klassen an der Kachel."""
+
+    def parse(self, html: str) -> list[Event]:
+        soup = BeautifulSoup(html, "lxml")
+        genres = {o["value"].lstrip("."): clean(o.get_text()) for o in soup.select("option[value^='.']")}
+        genres.pop("jumi-chalet", None)            # Raclette-Chalet zum Konzert buchbar – kein Genre
+        base = self.cfg.url or "https://www.thehall.ch/de/eventkalender/"
+        out = {}
+        for tile in soup.select(".c-tile--events"):
+            a, title_el, date_el = tile.find("a", href=True), tile.select_one(".c-tile__title"), tile.select_one(".c-tile__text")
+            d = parse_any_date(date_el.get_text(" ")) if date_el else None
+            if not a or not title_el or not d:
+                continue
+            note = tile.get_text(" ").lower()
+            url = urljoin(base, a["href"])
+            out.setdefault(url, self.make_event(
+                native_id=urlsplit(url).path.strip("/").split("/", 2)[-1], title=clean(title_el.get_text(" ")),
+                date=d[0], url=url, tags=[genres[c] for c in tile["class"] if c in genres],
+                sold_out="ausverkauft" in note, cancelled=bool(re.search(r"abgesagt|verlegt", note))))
+        return list(out.values())
+
+
+@register("moods")
+class MoodsSource(Source):
+    """moods.ch – Zürich. Die Next.js-Seite bringt das ganze Programm als JSON mit (`__NEXT_DATA__`):
+    Genres, Beginn, Preis, ausverkauft/abgesagt.
+
+    Option `kinds`: Kategorien nach «Moods_»/«Vermietung_» (Konzert, Late_Night, Afterparty, Kinderkonzert),
+    Standard: nur Konzerte."""
+
+    def parse(self, html: str) -> list[Event]:
+        m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.S)
+        if not m:
+            raise ValueError("Moods: kein __NEXT_DATA__ auf der Seite")
+        items = json.loads(m.group(1))["props"]["pageProps"]["fallback"].get("allEvents") or []
+        kinds = self.opt("kinds", ["Konzert"])
+        out = {}
+        for e in items:
+            kind = (e.get("eventCategory") or "").split("_", 1)[-1]
+            if not e.get("isVisible", True) or not e.get("eventDate") or not _wanted(kind, kinds):
+                continue
+            price = e.get("ticketPrice")
+            out.setdefault(e["slug"], self.make_event(
+                native_id=e.get("concertId") or e["slug"], title=clean(e.get("name") or ""),
+                date=date.fromisoformat(e["eventDate"]), time=parse_time(e.get("timeStart") or ""),
+                url=f"https://www.moods.ch/{e['slug']}", tags=[g["label"] for g in e.get("genres") or []],
+                extra={"price": f"CHF {price}"} if price else {},
+                sold_out=bool(e.get("isSoldOut")), cancelled=bool(e.get("isCancelled"))))
+        return list(out.values())
+
+
+@register("plaza")
+class PlazaSource(Source):
+    """plaza-zurich.ch/program/liveshows/ – jedes Event als <li> mit Datum, ID und Titel in data-Attributen;
+    «/ AUSVERKAUFT» steht im Titel."""
+
+    def parse(self, html: str) -> list[Event]:
+        soup = BeautifulSoup(html, "lxml")
+        out = {}
+        for li in soup.select("li.nu-event[data-nu-eid]"):
+            start = datetime.strptime(li["data-nu-edate"][:16], "%Y-%m-%d %H:%M")
+            if start.date() < date.today() - timedelta(days=1):     # vereinzelt hängen vergangene Shows in der Liste
+                continue
+            title, sold, cancelled = split_status(clean(li.get("data-nu-etitle", "")))
+            ticket = li.select_one("a.nu-e-link-ticket[href]")
+            out.setdefault(li["data-nu-eid"], self.make_event(
+                native_id=li["data-nu-eid"], title=title, date=start.date(), time=f"{start:%H:%M}",
+                url=ticket["href"].strip() if ticket else self.cfg.url,
+                tags=["Live"] if li.get("data-nu-etype") == "2" else [], sold_out=sold, cancelled=cancelled))
+        return list(out.values())
+
+
+@register("kaufleuten")
+class KaufleutenSource(Source):
+    """kaufleuten.ch/events/kultur/ – Titel «Fink • Konzert»: der Teil nach «•» ist die Sparte
+    (Konzert, Literatur, Comedy, Podcast …). Option `kinds`: Sparten, Standard: nur Konzerte; [] = alle."""
+
+    def parse(self, html: str) -> list[Event]:
+        soup = BeautifulSoup(html, "lxml")
+        kinds = self.opt("kinds", ["Konzert"])
+        out = {}
+        for art in soup.select("article.event"):
+            a, t, h = art.select_one("a.event-link[href]"), art.select_one("time[datetime]"), art.find("h3")
+            if not a or not t or not h:
+                continue
+            name, _, kind = clean(h.get_text(" ")).rpartition(" • ")
+            name, kind = (name, kind) if name else (kind, "")
+            if not _wanted(kind, kinds):
+                continue
+            start = datetime.fromisoformat(t["datetime"])
+            title, sold, cancelled = split_status(name)
+            out.setdefault(a["href"], self.make_event(
+                native_id=a["href"].rstrip("/").rsplit("/", 1)[-1], title=title, date=start.date(),
+                time=f"{start:%H:%M}", url=a["href"], tags=[kind] if kind else [],
+                sold_out=sold or "ausverkauft" in art.get_text().lower(), cancelled=cancelled))
+        return list(out.values())
+
+
+@register("salzhaus")
+class SalzhausSource(Source):
+    """salzhaus.ch – Winterthur. Links mit title «Maggie Reilly (SCT) (Live)»: die letzte Klammer ist die
+    Kategorie. Option `kinds`: Kategorien (Live, Party, Spass, Ü30 …), Standard: nur Live; [] = alle."""
+
+    def parse(self, html: str) -> list[Event]:
+        soup = BeautifulSoup(html, "lxml")
+        kinds = self.opt("kinds", ["Live"])
+        base = self.cfg.url or "https://www.salzhaus.ch/"
+        out = {}
+        for a in soup.select("a.sh-event-link[href]"):
+            cat_el, date_el = a.select_one(".category"), a.select_one(".date")
+            cat = clean(cat_el.get_text()) if cat_el else ""
+            d = parse_any_date(date_el.get_text(" ")) if date_el else None
+            if not d or not _wanted(cat, kinds):
+                continue
+            title = re.sub(rf"\s*\({re.escape(cat)}\)$", "", clean(a.get("title", ""))) if cat else clean(a.get("title", ""))
+            title, sold, cancelled = split_status(title)
+            status = (a.parent.get("data-status") or "").lower()
+            url = urljoin(base, a["href"])
+            out.setdefault(url, self.make_event(
+                native_id=a.get("data-id") or url, title=title, date=d[0], url=url, tags=[cat] if cat else [],
+                sold_out=sold or "sold" in status or "ausverkauft" in status, cancelled=cancelled or "cancel" in status))
+        return list(out.values())
+
+
+@register("albani")
+class AlbaniSource(Source):
+    """albani.ch – Winterthur. Aufklappbare Liste: Titel, Unterzeilen (Support, Genre), «Fr 16.10» ohne Jahr,
+    «20:00 UHR». Konzerte und Clubnächte sind nicht getrennt – was ab 22 Uhr beginnt, bekommt den Tag «Club»
+    (zählt als Party und lässt sich im Typ-Filter ausblenden)."""
+
+    def parse(self, html: str) -> list[Event]:
+        soup = BeautifulSoup(html, "lxml")
+        base = self.cfg.url or "https://www.albani.ch/"
+        out = {}
+        for label in soup.select("a.accLabel[data-acc-ref]"):
+            head = label.select_one(".albani-event-label")
+            title_el, date_el = head.select_one(".title") if head else None, label.select_one(".albani-event-date .date")
+            d = parse_any_date(date_el.get_text(" ")) if date_el else None
+            if not title_el or not d:
+                continue
+            lines = [clean(t) for t in title_el.stripped_strings]           # «Makthaverskan (SE)<br>Support: …»
+            if re.match(r"ersatzdatum", lines[0], re.I) and len(lines) > 1:   # «ERSATZDATUM:<br>Prince Jelleh (CH)»
+                lines = lines[1:]
+            genre = head.select_one(".subline")
+            time = parse_time(label.select_one(".albani-event-date .subline").get_text(" ")
+                              if label.select_one(".albani-event-date .subline") else "")
+            title, sold, cancelled = split_status(lines[0].rstrip(":"))
+            tags = [clean(genre.get_text(" "))] if genre else []
+            if time and time >= "22:00":
+                tags.append("Club")
+            content = soup.find(id=label["data-acc-ref"])
+            link = content.find("a", href=re.compile(r"/programm/")) if content else None
+            native = re.search(r"albani_event_(\d+)", label["data-acc-ref"])
+            out.setdefault(label["data-acc-ref"], self.make_event(
+                native_id=native.group(1) if native else f"{title}|{d[0]}", title=with_support(title, *lines[1:]),
+                date=d[0], time=time, url=urljoin(base, link["href"]) if link else base, tags=tags,
+                sold_out=sold or "ausverkauft" in label.get_text().lower(), cancelled=cancelled))
+        return list(out.values())
+
+
+@register("bierhuebeli")
+class BierhuebeliSource(Source):
+    """bierhuebeli.ch/konzerte/ – Bern. Pro Event ein Link mit Datum, Titel, Unterzeile («Support: …») und
+    Hinweisen («Ausverkauft», «Letzte Tickets»). Einige Shows finden im Kursaal statt (steht im Titel)."""
+
+    def parse(self, html: str) -> list[Event]:
+        soup = BeautifulSoup(html, "lxml")
+        out = {}
+        for a in soup.select("a.datumlink[href]"):
+            date_el, title_el, by = a.select_one(".eventdatum.ed-mobile"), a.select_one(".eventtitel"), a.select_one(".byline")
+            d = parse_any_date(date_el.get_text(" ")) if date_el else None
+            if not d or not title_el:
+                continue
+            title, sold, cancelled = split_status(clean(title_el.get_text(" ")))
+            out.setdefault(a["href"], self.make_event(
+                native_id=a["href"].rstrip("/").rsplit("/", 1)[-1], date=d[0], url=a["href"],
+                title=with_support(title, by.get_text(" ") if by else ""),
+                sold_out=sold or bool(a.select_one(".soldout")),
+                cancelled=cancelled or bool(re.search(r"abgesagt", a.get_text(" "), re.I))))
+        return list(out.values())
+
+
+@register("muehlehunziken")
+class MuehleHunzikenSource(Source):
+    """muehlehunziken.ch – Rubigen. Pro Event ein Link «/programm/<name>-2026-10-24» mit «Sa 24.10.», Titel,
+    Unterzeile («& The Headlines», «Special Guest: …») und Hinweis «Ausverkauft». Das Jahr steht meist im Link
+    («-2026-10-24» oder nur «-2027»), sonst wird es geschätzt."""
+
+    _SLUG_DATE = re.compile(r"-(20\d\d)(?:-(\d{2})-(\d{2}))?/?$")          # «…-2026-10-24» oder «span-2027»
+
+    def parse(self, html: str) -> list[Event]:
+        soup = BeautifulSoup(html, "lxml")
+        out = {}
+        for a in soup.select("a.customLink[href*='/programm/']"):
+            h2, day = a.find("h2"), re.search(r"(\d{1,2})\.(\d{1,2})\.", a.get_text(" "))
+            if not h2 or not day:
+                continue
+            d, mo = int(day.group(1)), int(day.group(2))
+            m = self._SLUG_DATE.search(a["href"])
+            year = int(m.group(1)) if m and (not m.group(2) or (int(m.group(2)), int(m.group(3))) == (mo, d)) \
+                else infer_year(d, mo)
+            sub = a.select_one("div.uppercase")
+            sub = clean(sub.get_text(" ")) if sub else ""
+            title, sold, cancelled = split_status(clean(h2.get_text(" ")))
+            if sub.startswith("& "):                                 # «Danko Jones» + «& The Headlines» (Vorband)
+                title = f"{title} & Support: {sub[2:]}"
+            else:
+                title = with_support(title, sub)
+            out.setdefault(a["href"], self.make_event(
+                native_id=a["href"].rstrip("/").rsplit("/", 1)[-1], title=title, date=date(year, mo, d), url=a["href"],
+                sold_out=sold or any(clean(f.get_text()).lower() == "ausverkauft" for f in a.select(".flag")),
+                cancelled=cancelled or any("abgesagt" in f.get_text().lower() for f in a.select(".flag"))))
+        return list(out.values())

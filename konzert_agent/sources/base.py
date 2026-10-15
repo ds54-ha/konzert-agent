@@ -104,8 +104,15 @@ _RANGE_RE = re.compile(
 _SINGLE_RE = re.compile(r"(?P<d>\d{1,2})\.(?P<m>\d{1,2})\.(?P<y>\d{2,4})")
 
 
+_FULL_RANGE_RE = re.compile(r"(\d{1,2})\.(\d{1,2})\.(\d{4})\s*[-–]\s*(\d{1,2})\.(\d{1,2})\.(\d{4})")
+
+
 def parse_dotted_date(text: str) -> tuple[date, date | None] | None:
-    """'14.10.2026', '14.10.26', '25-28.11.2026', '30.10-02.11.2026' -> (start, ende)."""
+    """'14.10.2026', '14.10.26', '25-28.11.2026', '30.10-02.11.2026', '17.10.2026 – 18.10.2026' -> (start, ende)."""
+    m = _FULL_RANGE_RE.search(text)
+    if m:
+        d1, m1, y1, d2, m2, y2 = map(int, m.groups())
+        return date(y1, m1, d1), date(y2, m2, d2)
     m = _RANGE_RE.search(text)
     if m:
         y = full_year(int(m["y"]))
@@ -119,7 +126,7 @@ def parse_dotted_date(text: str) -> tuple[date, date | None] | None:
     return None
 
 
-_TIME_RE = re.compile(r"\b([01]?\d|2[0-3])[:.]([0-5]\d)\b")
+_TIME_RE = re.compile(r"\b([01]?\d|2[0-3])[:.h]([0-5]\d)\b")          # 20:00, 20.00, 20h00
 
 
 def parse_time(text: str) -> str | None:
@@ -129,3 +136,28 @@ def parse_time(text: str) -> str | None:
 
 def clean(text: str) -> str:
     return re.sub(r"\s+", " ", text or "").strip()
+
+
+# Status-Zusätze am Titelende: «Simple Plan - SOLD OUT!», «… / AUSVERKAUFT», «Masego - VERSCHOBEN!»
+_STATUS = re.compile(r"\s*[-–/|:]?\s*[(\[]?\s*(ausverkauft|sold[\s-]*out|abgesagt|cancell?ed|verschoben|postponed|"
+                     r"neues datum)\s*!?[)\]]?\s*$", re.I)
+
+
+def split_status(title: str) -> tuple[str, bool, bool]:
+    """Titel ohne Status-Zusatz -> (titel, ausverkauft, abgesagt)."""
+    sold = cancelled = False
+    while (m := _STATUS.search(title)) and m.start() > 0:
+        word = m.group(1).lower()
+        sold |= word.startswith(("ausverkauft", "sold"))
+        cancelled |= word.startswith(("abgesagt", "cancel"))
+        title = title[:m.start()].rstrip()
+    return title, sold, cancelled
+
+
+_SUPPORT_TXT = re.compile(r"\b(?:support|s(?:pe|ep)cial guests?|warm-?up)\s*:\s*(.+)$", re.I)
+
+
+def with_support(title: str, *texts: str) -> str:
+    """Hängt «Support: X» aus einer Unterzeile an den Titel – so liest die Band-Erkennung die Vorband mit."""
+    acts = [m.group(1).strip() for t in texts if (m := _SUPPORT_TXT.search(clean(t)))]
+    return f"{title} & Support: {', '.join(acts)}" if acts else title
