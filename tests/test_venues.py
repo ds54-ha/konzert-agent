@@ -50,7 +50,8 @@ VOLKSHAUS = """<div class="month-title"><span>OKTOBER 2026</span></div>
 <span>KONZERT 20:00 Uhr</span><div><span>THEATERSAAL</span></div></div></div>"""
 
 KOMPLEX = [
-    {"id": "a1", "date": "2099-10-16T20:00", "artist": "SIX60", "support_acts": ["luca!"], "genre": "Rock", "status": "Ausverkauft"},
+    {"id": "a1", "date": "2099-10-16T20:00", "artist": "SIX60", "support_acts": ["luca!"], "genre": "Rock", "status": "Ausverkauft",
+     "ticket_price": 45.0},
     {"id": "a2", "date": "2099-10-17T20:00", "artist": "DÚ MAROC", "genre": "Hip-Hop, Rap", "status": "Abgesagt"},
     {"id": "a3", "date": "2099-10-31T20:00", "artist": "BETONTOD", "genre": "Punk", "status": "Verlegt",
      "postponed_info": "Die Show wurde verlegt und findet neu im Dynamo statt."},
@@ -83,13 +84,16 @@ MOODS = {"props": {"pageProps": {"fallback": {"allEvents": [
 ]}}}}
 
 PLAZA = """<ul><li class="nu-event" data-nu-edate="2099-10-21 19:00:00" data-nu-eid="5001" data-nu-etitle="Gabirano  (CH) / AUSVERKAUFT"
- data-nu-etype="2"><a class="nu-e-link-ticket" href="https://www.seetickets.com/x ">Tickets</a></li>
+ data-nu-etype="2"><a class="nu-e-link-ticket" href="https://www.seetickets.com/x ">Tickets</a>
+<p><span>Tickets: Vorverkauf CHF 38.-&nbsp;</span></p></li>
 <li class="nu-event" data-nu-edate="2020-03-14 19:00:00" data-nu-eid="4000" data-nu-etitle="Alt" data-nu-etype="2"></li></ul>"""
 
 KAUFLEUTEN = """<article class="event"><a class="event-link" href="https://kaufleuten.ch/event/fink-konzert/">
-<time datetime="2026-10-25T20:00:00+01:00">Sonntag, 25.10.2026</time><header><h3>Fink • Konzert</h3></header></a></article>
+<time datetime="2026-10-25T20:00:00+01:00">Sonntag, 25.10.2026</time><ul class="tickets"><li>ab <span class="currency">CHF</span> 57</li></ul>
+<header><h3>Fink • Konzert</h3></header></a></article>
 <article class="event"><a class="event-link" href="https://kaufleuten.ch/event/caroline-wahl-literatur/">
-<time datetime="2026-10-19T20:00:00+02:00">Montag</time><header><h3>Caroline Wahl • Literatur</h3></header></a></article>"""
+<time datetime="2026-10-19T20:00:00+02:00">Montag</time><ul class="tickets"><li>Verlosung</li></ul>
+<header><h3>Caroline Wahl • Literatur</h3></header></a></article>"""
 
 SALZHAUS = """<div class="sh-event-list-item events" data-status="special_2"><a class="sh-event-link" data-id="11107"
  href="https://www.salzhaus.ch/de/programm/11107/Maggie-ReillySCT" title="Maggie Reilly (SCT) (Live)">
@@ -211,6 +215,7 @@ class VenueTests(unittest.TestCase):
         self.assertEqual(evs[2].moved_note, "Die Show wurde verlegt und findet neu im Dynamo statt")
         self.assertEqual((evs[0].time, evs[0].url), ("20:00", "https://komplex-457.ch/EventDetail?id=a1"))
         self.assertEqual(evs[1].tags, ["Hip-Hop", "Rap"])
+        self.assertEqual([e.extra.get("price") for e in evs], ["CHF 45", None, None])   # nur eigener Verkauf
 
     def test_komplex457_fetch_only_published(self):
         f = FakeFetcher({"https://base44.app/": json.dumps(KOMPLEX)})
@@ -239,11 +244,13 @@ class VenueTests(unittest.TestCase):
         evs = src("plaza", "https://www.plaza-zurich.ch/program/liveshows/").parse(PLAZA)
         self.assertEqual([(e.title, e.time, e.sold_out, e.url) for e in evs],
                          [("Gabirano (CH)", "19:00", True, "https://www.seetickets.com/x")])
+        self.assertEqual(evs[0].extra, {"price": "CHF 38"})
 
     def test_kaufleuten_category_from_title(self):
         evs = src("kaufleuten", "https://kaufleuten.ch/events/kultur/").parse(KAUFLEUTEN)
         self.assertEqual([(e.title, e.date, e.time, e.tags) for e in evs], [("Fink", date(2026, 10, 25), "20:00", ["Konzert"])])
-        self.assertEqual(len(src("kaufleuten", "", kinds=[]).parse(KAUFLEUTEN)), 2)
+        both = src("kaufleuten", "", kinds=[]).parse(KAUFLEUTEN)
+        self.assertEqual([e.extra.get("price") for e in both], ["ab CHF 57", None])     # «Verlosung» ist kein Preis
 
     def test_salzhaus_category_and_short_year(self):
         evs = src("salzhaus", "https://www.salzhaus.ch/").parse(SALZHAUS)
@@ -259,6 +266,7 @@ class VenueTests(unittest.TestCase):
                           ("Inzidance", "23:00", ["Modern Hits", "Club"])])
         self.assertEqual((evs[0].native_id, evs[0].date.month, evs[0].date.day), ("1400", 10, 21))
         self.assertEqual(evs[0].url, "https://www.albani.ch/de/programm/1400/Makthaverskan.html")
+        self.assertEqual([e.extra.get("price") for e in evs], ["28 CHF", None])
 
     def test_bierhuebeli(self):
         evs = src("bierhuebeli", "https://bierhuebeli.ch/konzerte/").parse(BIERHUEBELI)

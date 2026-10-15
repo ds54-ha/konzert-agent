@@ -98,5 +98,12 @@
   - [ ] Tourdaten-Branch (`feature/tour-announcements`): Ticketmaster-Status `postponed`/`rescheduled` beim
         Zusammenführen ebenfalls als verschoben übernehmen
 
+- [x] 16. Ticketpreise anzeigen (v1.18.0)
+  - Einheitlich «ab CHF 35» / «CHF 25–30» / «gratis» (`prices.py`), fett in der Liste, im iCal-Abo «Preis: …»
+  - Neu mit Preis: Kaufleuten, Albani, Plaza, Komplex 457 (nur eigener Verkauf); vorher schon PETZI, Moods, Dynamo
+  - Preise bestehender Events werden bei jedem Lauf aktualisiert (vorher nur beim Erstimport)
+  - [ ] PETZI-Preise nachladen, wenn der Vorverkauf später startet (Detailseite wird nur für neue Events geladen)
+  - [ ] Optional: nach Preis filtern/sortieren, Preis in Telegram-Meldungen
+
 Reihenfolge (2026-10-14): zuerst 6 (erledigt), dann 4 (erledigt).
 Reihenfolge (2026-10-15): 7 + 8 zusammen, dann 9 → 10, danach 11 und 12.

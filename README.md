@@ -35,6 +35,13 @@ Haftungsausschluss und Copyright (`settings.copyright` in config.yaml = Name nac
 Karte darunter den Hauptact und «mit …» die weiteren – je mit Herkunft, Stil und Fans, angemeldet mit ＋ zum
 Folgen. Die Locations liefern Support-Bands nicht separat; sie werden aus dem Titel gelesen.
 
+**Ticketpreise** stehen fett in der Zeile unter dem Titel («ab CHF 35», «CHF 25–30», «gratis») und in der
+Beschreibung des iCal-Abos – soweit die Location sie nennt: PETZI-Clubs (Detailseite), Moods, Dynamo, Kaufleuten,
+Albani, Plaza, Komplex 457 (nur bei eigenem Verkauf). Locations, die über Ticketcorner & Co. verkaufen (Volkshaus,
+Hallenstadion, The Hall …), nennen keinen Preis. Jede Quelle schreibt Preise anders; vereinheitlicht wird beim
+Anzeigen (`konzert_agent/prices.py`). Kommt ein Preis erst später (Vorverkaufsstart), wird er beim nächsten Lauf
+übernommen – ausser bei PETZI, dessen Detailseite nur für neue Events geladen wird.
+
 **Archiv:** Vergangene Events bleiben gespeichert. Der Tab **Archiv** zeigt sie, neueste zuerst, mit denselben
 Filtern (ohne Zeitraum); die Monatsansicht blättert auch zurück. Das Archiv beginnt mit dem ersten Lauf.
 

@@ -17,6 +17,7 @@ from ..agent import Agent
 from ..auth import new_token
 from ..follows import follow_key, matching
 from ..kinds import event_kind
+from ..prices import format_price
 from ..userbot import clean_prefs
 from .security import AuthMiddleware, login_routes
 
@@ -72,6 +73,7 @@ def create_app(agent: Agent):
             e["venue"] = m.get("name", e["venue_id"])        # Location inzwischen abgeschaltet -> ID
             e["city"] = m.get("city", "")
             e.setdefault("kind", event_kind(e["title"], e["tags"]))
+            e["price"] = format_price(e["extra"].get("price"))
         return evs
 
     async def api_events(req):
@@ -297,9 +299,10 @@ def create_app(agent: Agent):
             # verschoben: nicht CANCELLED (findet ja statt, nur anders) – aber auch nicht mehr sicher
             st = "CANCELLED" if e["cancelled"] else "TENTATIVE" if e.get("moved") else status(e)
             moved = [f"Verschoben: {e.get('moved_note') or 'neues Datum/Ort noch offen'}"] if e.get("moved") else []
+            price = [f"Preis: {p}"] if (p := format_price(e["extra"].get("price"))) else []
             lines += [f"SUMMARY:{_ics_escape(summary)}",
                       f"LOCATION:{_ics_escape(venue['name'] + (', ' + venue['city'] if venue['city'] else ''))}",
-                      f"URL:{e['url']}", f"DESCRIPTION:{_ics_escape(chr(10).join([*moved, *describe(e), e['url']]))}"]
+                      f"URL:{e['url']}", f"DESCRIPTION:{_ics_escape(chr(10).join([*moved, *describe(e), *price, e['url']]))}"]
             lines += [f"STATUS:{st}"] if st else []
             lines.append("END:VEVENT")
         lines.append("END:VCALENDAR")

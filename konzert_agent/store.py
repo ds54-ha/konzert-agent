@@ -150,6 +150,9 @@ class Store:
                         (ev.title, ev.date.isoformat(), ev.end_date.isoformat() if ev.end_date else None, ev.url,
                          int(ev.sold_out), int(ev.cancelled), int(ev.moved), ev.moved_note or None, now, ev.time,
                          json.dumps(ev.tags), json.dumps(ev.tags), ev.uid))
+                    if ev.extra.get("price"):                  # Preis kommt oft erst später (Vorverkauf) oder ändert
+                        self.db.execute("UPDATE events SET extra=json_set(COALESCE(extra, '{}'), '$.price', ?)"
+                                        " WHERE uid=?", (ev.extra["price"], ev.uid))
         return new, cancelled
 
     def update_details(self, ev: Event):

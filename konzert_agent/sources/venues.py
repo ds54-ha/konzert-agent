@@ -292,6 +292,7 @@ class Komplex457Source(Source):
                 native_id=e["id"], title=f"{title} & Support: {', '.join(support)}" if support else title,
                 date=start.date(), time=f"{start:%H:%M}", url=f"https://komplex-457.ch/EventDetail?id={e['id']}",
                 tags=[t.strip() for t in re.split(r"[,/]", e.get("genre") or "") if t.strip()],
+                extra={"price": f"CHF {e['ticket_price']:g}"} if (e.get("ticket_price") or 0) > 0 else {},
                 sold_out=status == "ausverkauft", cancelled=status == "abgesagt",
                 moved=status == "verlegt", moved_note=first_sentence(e.get("postponed_info") or "") if status == "verlegt" else ""))
         return out
@@ -371,10 +372,12 @@ class PlazaSource(Source):
                 continue
             st = split_status(clean(li.get("data-nu-etitle", "")))
             ticket = li.select_one("a.nu-e-link-ticket[href]")
+            presale = re.search(r"Vorverkauf[^\d]{0,25}(\d+(?:\.\d\d)?)", li.get_text(" "))   # «Vorverkauf CHF 38.-»
             out.setdefault(li["data-nu-eid"], self.make_event(
                 native_id=li["data-nu-eid"], title=st.title, date=start.date(), time=f"{start:%H:%M}",
                 url=ticket["href"].strip() if ticket else self.cfg.url,
-                tags=["Live"] if li.get("data-nu-etype") == "2" else [], **st.flags()))
+                tags=["Live"] if li.get("data-nu-etype") == "2" else [], **st.flags(),
+                extra={"price": f"CHF {presale.group(1)}"} if presale else {}))
         return list(out.values())
 
 
@@ -397,9 +400,11 @@ class KaufleutenSource(Source):
                 continue
             start = datetime.fromisoformat(t["datetime"])
             st = split_status(name)
+            tickets = clean(art.select_one("ul.tickets").get_text(" ")) if art.select_one("ul.tickets") else ""
             out.setdefault(a["href"], self.make_event(
                 native_id=a["href"].rstrip("/").rsplit("/", 1)[-1], title=st.title, date=start.date(),
                 time=f"{start:%H:%M}", url=a["href"], tags=[kind] if kind else [],
+                extra={"price": tickets} if "CHF" in tickets else {},          # «ab CHF 48»; «Verlosung» = kein Preis
                 **st.flags(sold_out="ausverkauft" in art.get_text().lower())))
         return list(out.values())
 
@@ -451,8 +456,9 @@ class AlbaniSource(Source):
             if re.match(r"ersatzdatum", lines[0], re.I) and len(lines) > 1:   # «ERSATZDATUM:<br>Prince Jelleh (CH)»
                 lines = lines[1:]
             genre = head.select_one(".subline")
-            time = parse_time(label.select_one(".albani-event-date .subline").get_text(" ")
-                              if label.select_one(".albani-event-date .subline") else "")
+            when = label.select_one(".albani-event-date .subline")             # «20:00 UHR<br>Ab 25 CHF»
+            time = parse_time(when.get_text(" ") if when else "")
+            price = re.search(r"(?:ab\s*)?\d+\s*CHF", when.get_text(" "), re.I) if when else None
             st = split_status(lines[0].rstrip(":"))
             tags = [clean(genre.get_text(" "))] if genre else []
             if time and time >= "22:00":
@@ -463,6 +469,7 @@ class AlbaniSource(Source):
             out.setdefault(label["data-acc-ref"], self.make_event(
                 native_id=native.group(1) if native else f"{st.title}|{d[0]}", title=with_support(st.title, *lines[1:]),
                 date=d[0], time=time, url=urljoin(base, link["href"]) if link else base, tags=tags,
+                extra={"price": price.group()} if price else {},
                 **st.flags(sold_out="ausverkauft" in label.get_text().lower())))
         return list(out.values())
 
