@@ -3,12 +3,12 @@
 ## Band-Infos & Login (Plan vom 2026-10-14)
 
 - [x] 0. Versionsnummer in der Web-Oberfläche (v1.1.0)
-- [x] 1. Bandnamen aus Event-Titeln erkennen + Testbefehl `artists <location>` (MusicBrainz + Deezer, speichert nichts)
+- [x] 1. Bandnamen aus Event-Titeln erkennen + Testbefehl `artists <location>` (MusicBrainz + Deezer, speichert nichts) (v1.2.0)
 - [x] 2. Artist-Infos speichern: Cache-Tabelle, Refresh alle ~30 Tage, Genres → grobe Genre-Gruppen,
          Fans → Popularität 0–100 (Headliner); Genres wirken in include/exclude (v1.2.0)
   - [ ] Last.fm als zusätzliche Genre-Quelle (API-Key folgt später)
-  - [x] Ohne MusicBrainz-Genres auf die Tags der Location (PETZI/Schüür) zurückfallen
-  - [x] Manuelle Korrektur falscher Zuordnungen (`artists.overrides` / `artists.titles` in config.yaml)
+  - [x] Ohne MusicBrainz-Genres auf die Tags der Location (PETZI/Schüür) zurückfallen (v1.2.0)
+  - [x] Manuelle Korrektur falscher Zuordnungen (`artists.overrides` / `artists.titles` in config.yaml) (v1.2.0)
 - [x] 3. Oberfläche: Genre-Filter, Popularitäts-Badge, Sortierung nach Popularität;
          Genre/Popularität auch im iCal-Abo (`?genre=…&pop=…`) (v1.3.0)
 - [x] 4. Login (auch von ausserhalb des Heimnetzes) – Gäste sehen den Kalender nur lesend, alle
@@ -18,16 +18,16 @@
   - [x] Gäste dürfen den Kalender ansehen (nur lesen), «Anmelden»-Knopf schaltet Funktionen frei;
         `auth.guests: false` = alles hinter Login (v1.6.0)
   - [x] 4b. Konzerte markieren pro Benutzer: «Interessiert» / «Gehe hin» (v1.7.0)
-    - [x] Ticket-Status: «Ja, selbst gekauft» / «Ja, jemand anderes hat sie» / «Noch nicht»
+    - [x] Ticket-Status: «Ja, selbst gekauft» / «Ja, jemand anderes hat sie» / «Noch nicht» (v1.7.0)
     - [x] Teilen per Opt-in, gegenseitig (nur wer teilt, sieht andere); andere sehen Name + Status,
-          nicht den Ticket-Status. Filter «Meine Konzerte»: Markiert / Gehe hin / Ohne Ticket / Andere gehen
+          nicht den Ticket-Status. Filter «Meine Konzerte»: Markiert / Gehe hin / Ohne Ticket / Andere gehen (v1.7.0)
   - [x] 4c. Dashboard «Meine» (Tab, Klick auf den Namen oder /#meine): Ticket fehlt noch, Gehe hin,
             Interessiert, Vergangen – unabhängig von den Filtern (v1.8.0)
   - [x] 4d. Persönlicher iCal-Link mit den markierten Konzerten (☆/✓ im Titel, TENTATIVE/CONFIRMED,
             Ticket + wer sonst hingeht in der Beschreibung), `?status=going`, `?all=1` = alle mit Filtern;
             Link im Tab «Meine» erneuerbar (v1.9.0)
   - Zugang von aussen: eigene Domain über Cloudflare → nginx-Reverse-Proxy (noch nicht aktiviert)
-  - Gegenseitig sehen, wer hingeht: pro Benutzer ein-/ausschaltbar (Opt-in)
+  - Gegenseitig sehen, wer hingeht: pro Benutzer ein-/ausschaltbar (Opt-in) (v1.7.0)
 
 ## Weitere Locations & Scraper
 
@@ -53,28 +53,28 @@
 ## Layout & Bedienung
 
 - [x] 7. Optimierungen am UX (v1.10.0)
-  - [x] Zusätzlicher Kalenderselector um individuelle Zeiträume (nicht nur Wochenende, 7, 30 Tage etc.) zu wählen
-  - [x] Locations als zusammenklappbar per Stadt (Haken pro Stadt, ⚠ bei Fehlern)
+  - [x] Zusätzlicher Kalenderselector um individuelle Zeiträume (nicht nur Wochenende, 7, 30 Tage etc.) zu wählen (v1.10.0)
+  - [x] Locations als zusammenklappbar per Stadt (Haken pro Stadt, ⚠ bei Fehlern) (v1.10.0)
     - [x] Einfügen von "colapse all" («alle aufklappen / zuklappen») (v1.14.0)
     - [x] Hinter jeder Location eine "nur" Button (auch pro Stadt) (v1.14.0)
-  - [x] Persönliche Einstellungen am Ende der Sidebar (Teilen zusätzlich im Dashboard)
+  - [x] Persönliche Einstellungen am Ende der Sidebar (Teilen zusätzlich im Dashboard) (v1.10.0)
   - [x] Filter nach Event-Typ: Konzert / Party / Andere – aus Tags der Location, sonst eindeutigen Titelwörtern
-        (`konzert_agent/kinds.py`); auch im iCal-Abo (`?kind=…`)
+        (`konzert_agent/kinds.py`); auch im iCal-Abo (`?kind=…`) (v1.10.0)
 - [x] 8. Optimierungen am Layout (v1.10.0)
-  - [x] Option zur Wahl der Akzentfarbe (6 Farben, je hell/dunkel abgestimmt)
-  - [x] Option für Dark-/Lightmode (System / Hell / Dunkel) – pro Gerät gespeichert, auch für Gäste
+  - [x] Option zur Wahl der Akzentfarbe (6 Farben, je hell/dunkel abgestimmt) (v1.10.0)
+  - [x] Option für Dark-/Lightmode (System / Hell / Dunkel) – pro Gerät gespeichert, auch für Gäste (v1.10.0)
   - [x] add a disclaimer and copyright notice at the bottom (`settings.copyright`) (v1.14.0)
 
 ## Userfunktionen
 
 - [x] 9. Individuelle Telegram-Konfiguration pro Benutzer (Voraussetzung für 10) (v1.11.0)
-  - [x] Selbst verbinden über eigenen Bot: Einmal-Link `t.me/<bot>?start=<code>`, Long-Polling (kein Webhook)
-  - [x] Pro Benutzer: neue Konzerte Aus / Alle / Nur passende (gespeicherter Filter), Absagen markierter Konzerte
-  - [x] Trennen im Web, mit /stop oder `user telegram-off`; blockierter Bot trennt automatisch
+  - [x] Selbst verbinden über eigenen Bot: Einmal-Link `t.me/<bot>?start=<code>`, Long-Polling (kein Webhook) (v1.11.0)
+  - [x] Pro Benutzer: neue Konzerte Aus / Alle / Nur passende (gespeicherter Filter), Absagen markierter Konzerte (v1.11.0)
+  - [x] Trennen im Web, mit /stop oder `user telegram-off`; blockierter Bot trennt automatisch (v1.11.0)
 - [x] 10. Bands folgen → Telegram-Meldung bei neuer Show (v1.12.0)
-  - [x] Folgen per ＋ beim Konzert oder per Name im Tab «Meine»; ★ in der Liste, «★ Gefolgte Bands» im Dashboard
-  - [x] Treffer über erkannte Bands oder Name als ganze Wörter im Titel (auch Support-Bands)
-  - [x] Telegram: «⭐ Neue Show …» immer (auch bei «Aus»), abschaltbar; nicht doppelt in der allgemeinen Liste
+  - [x] Folgen per ＋ beim Konzert oder per Name im Tab «Meine»; ★ in der Liste, «★ Gefolgte Bands» im Dashboard (v1.12.0)
+  - [x] Treffer über erkannte Bands oder Name als ganze Wörter im Titel (auch Support-Bands) (v1.12.0)
+  - [x] Telegram: «⭐ Neue Show …» immer (auch bei «Aus»), abschaltbar; nicht doppelt in der allgemeinen Liste (v1.12.0)
 
 ## Später
 
