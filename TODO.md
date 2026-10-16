@@ -46,9 +46,25 @@
     Luzern: Sedel, Neubad, Treibhaus, Kulturwerk 118 · Ostschweiz: Grabenhalle, Palace, Flon, Kammgarn, TapTab,
     KAFF, Eisenwerk, Horstklub · Fribourg/Biel: Fri-Son, Bad Bonn, Le Singe, AJZ
   - Mühle Hunziken (Rubigen, eigener Scraper), Schützi Olten (`css`, nur «Schützi Live»)
-  - [ ] Noch offen (eigene Seiten, keine API gefunden): Kaserne Basel, Atlantis, Volkshaus Basel,
-        St. Jakobshalle, Südpol, Galvanik Zug, Kugl, Mokka Thun;
+  - [ ] Noch offen (eigene Seiten, keine API gefunden): siehe 19.
         Rote Fabrik hat auf PETZI nur wenige Events (eigene Seite prüfen)
+- [ ] 19. Fehlende Pop/Rock-Locations Deutschschweiz
+  - Vorgehen: URLs vor dem Scrapen prüfen (nicht verifiziert); zuerst schauen, ob die Location auf PETZI verkauft
+    → dann über den PETZI-Scraper, sonst eigener Scraper; Duplikate mit bestehenden Locations/Events vermeiden
+  - (P?) = wahrscheinlich PETZI-Mitglied, bestätigen
+  - [ ] Grosse Hallen: St. Jakobshalle (Basel, stjakobshalle.ch), PostFinance Arena (Bern, postfinance-arena.ch),
+        KKL Luzern (kkl-luzern.ch – viel Klassik, nur Pop/Rock übernehmen), Maag Halle (Zürich, maag-halle.ch),
+        Theater 11 (Zürich, theater11.ch – viele Musicals, nur Konzerte übernehmen)
+    - Samsung Hall (Dübendorf) = heute «The Hall», schon drin (v1.15.0) – nicht doppelt anlegen
+  - [ ] Zürich: Mascotte (mascotte.ch); Rote Fabrik eigene Seite (rotefabrik.ch), PETZI liefert nur wenige Events
+  - [ ] Basel: Kaserne Basel (kaserne-basel.ch, P?), Atlantis (atlan-tis.ch), Volkshaus Basel (volkshaus-basel.ch)
+  - [ ] Bern und Umgebung: Mahogany Hall (Bern, mahogany.ch, P?), Heitere Fahne (Wabern, dieheiterefahne.ch, P?),
+        Café Bar Mokka (Thun, mokka.ch, P?); Café Kairo schon drin (PETZI)
+  - [ ] Zentralschweiz: Südpol (Kriens, sudpol.ch, P?), Galvanik (Zug, galvanik-zug.ch, P?),
+        Chollerhalle (Zug, chollerhalle.ch)
+  - [ ] Ostschweiz: Kugl (St. Gallen, kugl.ch, P?), Gare de Lion (Wil, garedelion.ch, P?)
+  - [ ] Aargau, Solothurn, Baselland: Merkker (Baden, merkker.ch, P?), Odeon (Brugg, odeon-brugg.ch),
+        Coq d'Or (Olten, coqdor.ch, P?), Guggenheim (Liestal, guggenheimliestal.ch, P?)
 - [ ] 13. statt nur locations auch Bandseiten direkt, um Touranouncement abzufangen und die Daten einzupflegen
 - [ ] 18. Regionen als «Plugins» (Länder/Bundesländer/Städte), getrennt deploybar – z. B. Schweiz und Berlin
   - [ ] Venue-Sets pro Region in eigene Dateien auslagern (z. B. `regions/ch.yaml`, `regions/de-berlin.yaml`),
@@ -72,6 +88,10 @@
   - [x] Option zur Wahl der Akzentfarbe (6 Farben, je hell/dunkel abgestimmt) (v1.10.0)
   - [x] Option für Dark-/Lightmode (System / Hell / Dunkel) – pro Gerät gespeichert, auch für Gäste (v1.10.0)
   - [x] add a disclaimer and copyright notice at the bottom (`settings.copyright`) (v1.14.0)
+- [ ] 22. Neuer Name für die App finden und im Code anpassen (Titel, Header, iCal-Kalendername, Telegram-Texte,
+      README, Docker-Image/Container, Paketname `konzert_agent`)
+- [ ] 23. Animiertes Logo im Header im Stil der Ghostty-Website (animierter ASCII-Geist) – passend zum neuen
+      Namen (22); hell/dunkel und Akzentfarbe berücksichtigen, `prefers-reduced-motion` respektieren
 
 ## Userfunktionen
 
@@ -88,6 +108,10 @@
   - [ ] Bei «Tickets kaufte jemand anders» auswählen, welcher Freund die Tickets gekauft hat
   - [ ] Persönlicher Kalender im Dashboard (eigene Konzerte als Monatsansicht)
   - [ ] Einstellungen (Telegram, Filter, Passwort …) in einen eigenen Tab «Einstellungen» verschieben
+- [ ] 20. Mehr Optionen im neuen Benutzerbereich: einzelne Locations (oder ganze Städte) von der automatischen
+      Telegram-Benachrichtigung abwählen
+- [ ] 21. Filter-Presets speichern (benannt, pro Benutzer), schnell wieder aufrufen; evtl. als Basis für
+      «Nur passende» bei Telegram und fürs iCal-Abo
 
 ## Später
 
