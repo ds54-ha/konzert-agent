@@ -19,7 +19,7 @@ from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
 
-from .base import Source, register, parse_dotted_date, clean
+from .base import Source, register, parse_dotted_date, clean, split_status
 from ..models import Event
 
 BASE = "https://www.petzi.ch"
@@ -59,15 +59,15 @@ class PetziSource(Source):
             if not title:  # Fallback: Text ohne Datum und ohne "Mehr Infos"
                 title = re.sub(r"^[\d.\-–]+\s*", "", text)
                 title = re.sub(r"\s*Mehr Infos.*$", "", title).strip()
+            st = split_status(title)            # «Abgesagt: Band» -> «Band» + Status
             ev = self.make_event(
                 native_id=m.group(1),
-                title=title,
+                title=st.title,
                 date=dates[0],
                 end_date=dates[1],
                 url=urljoin(BASE, a["href"]),
-                cancelled=bool(re.search(r"abgesagt|cancel|annul", title, re.I)),
-                moved=bool(re.search(r"verschoben|verlegt|postponed|report[ée]", title, re.I))
-                and not re.search(r"abgesagt|cancel|annul", title, re.I),
+                **st.flags(cancelled=bool(re.search(r"abgesagt|cancel|annul", title, re.I)),
+                           moved=bool(re.search(r"verschoben|verlegt|postponed|report[ée]", title, re.I))),
             )
             events.setdefault(ev.native_id, ev)
         return list(events.values())

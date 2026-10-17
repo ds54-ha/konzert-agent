@@ -169,6 +169,9 @@ def first_sentence(text: str) -> str:
 # «Neues Datum» heisst: das angezeigte Datum IST das neue – wird nur entfernt, kein Status.
 _STATUS = re.compile(r"\s*[-–/|:]?\s*[(\[]?\s*(ausverkauft|sold[\s-]*out|abgesagt|cancell?ed|verschoben|verlegt|postponed|"
                      r"report[ée]e?|neues datum)\s*!?[)\]]?\s*$", re.I)
+# Status vorne: «Abgesagt: Brokeboys Release Party», «SOLD OUT – Band» (nur mit Trennzeichen danach)
+_STATUS_PREFIX = re.compile(r"^\s*[(\[]?\s*(ausverkauft|sold[\s-]*out|abgesagt|cancell?ed|verschoben|verlegt|postponed|"
+                            r"report[ée]e?)\s*!?[)\]]?\s*[-–/|:!]\s*", re.I)
 # «Band – verschoben auf 13.04.2027», «Band (verlegt ins Dynamo)»: das Ziel wird zum Hinweis
 _MOVED_TO = re.compile(r"\s*[-–/|:(\[]\s*((?:verschoben|verlegt)\s+(?:auf|in|ins|nach)\s.+?)\s*[)\]]?\s*$", re.I)
 
@@ -189,17 +192,23 @@ class TitleStatus:
                 "moved_note": clean(self.moved_note or moved_note) if moved else ""}
 
 
+def _set_status(st: TitleStatus, word: str):
+    st.sold_out |= word.startswith(("ausverkauft", "sold"))
+    st.cancelled |= word.startswith(("abgesagt", "cancel"))
+    st.moved |= word.startswith(("verschoben", "verlegt", "postponed", "report"))
+
+
 def split_status(title: str) -> TitleStatus:
     """Titel ohne Status-Zusatz, Status getrennt."""
     st = TitleStatus(title)
     if (m := _MOVED_TO.search(title)) and m.start() > 0:
         st.moved, st.moved_note, title = True, m.group(1), title[:m.start()].rstrip()
     while (m := _STATUS.search(title)) and m.start() > 0:
-        word = m.group(1).lower()
-        st.sold_out |= word.startswith(("ausverkauft", "sold"))
-        st.cancelled |= word.startswith(("abgesagt", "cancel"))
-        st.moved |= word.startswith(("verschoben", "verlegt", "postponed", "report"))
+        _set_status(st, m.group(1).lower())
         title = title[:m.start()].rstrip()
+    while (m := _STATUS_PREFIX.match(title)) and m.end() < len(title):
+        _set_status(st, m.group(1).lower())
+        title = title[m.end():].lstrip()
     st.title = title
     return st
 

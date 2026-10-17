@@ -46,9 +46,30 @@
     Luzern: Sedel, Neubad, Treibhaus, Kulturwerk 118 · Ostschweiz: Grabenhalle, Palace, Flon, Kammgarn, TapTab,
     KAFF, Eisenwerk, Horstklub · Fribourg/Biel: Fri-Son, Bad Bonn, Le Singe, AJZ
   - Mühle Hunziken (Rubigen, eigener Scraper), Schützi Olten (`css`, nur «Schützi Live»)
-  - [ ] Noch offen (eigene Seiten, keine API gefunden): siehe 19.
+  - [ ] Noch offen (eigene Seiten, keine API gefunden): siehe 26.
         Rote Fabrik hat auf PETZI nur wenige Events (eigene Seite prüfen)
-- [ ] 19. Fehlende Pop/Rock-Locations Deutschschweiz
+- [ ] 18. statt nur locations auch Bandseiten direkt, um Touranouncement abzufangen und die Daten einzupflegen
+  - [ ] Branch `feature/tour-announcements` (Ticketmaster, v1.16.0) auf master nachziehen und mergen
+- [ ] 19. Verschwundene Events als abgesagt markieren: heute gilt ein Event nur als abgesagt, wenn die Location
+      es so beschriftet – verschwindet es einfach aus dem Programm, bleibt es im Kalender stehen
+  - [ ] Pro Lauf vergleichen: kommende Events der Location, die nicht mehr in der Liste sind (`last_seen` älter als
+        der aktuelle Lauf) -> abgesagt markieren und markierten Benutzern melden (wie heute bei «abgesagt»)
+  - [ ] Nur nach erfolgreichem Lauf mit plausibler Anzahl Events (nicht bei 0 Events/Fehler/Seitenumbau), evtl.
+        erst nach 2 Läufen ohne Treffer; X-tra lädt ohne «Alle anzeigen» nur 9 Events -> dort nicht anwenden
+  - [ ] Taucht das Event wieder auf: Absage zurücknehmen
+- [ ] 25. Regionen als «Plugins» (Länder/Bundesländer/Städte), getrennt deploybar – z. B. Schweiz und Berlin
+  - Nur die Struktur (Dateien/Module) vor 26 – und nur, wenn Berlin wirklich kommt
+  - [ ] Venue-Sets pro Region in eigene Dateien auslagern (z. B. `regions/ch.yaml`, `regions/de-berlin.yaml`),
+        `config.yaml` wählt nur aus, welche Regionen aktiv sind
+  - [ ] Regionsspezifische Scraper in eigene Module (`sources/ch/…`, `sources/de/…`); nur aktive Regionen laden
+  - [ ] Pro Region: Zeitzone, Währung (CHF/EUR, Preisformat), Sprache der Status-Wörter, Ticketplattformen
+        (PETZI ↔ z. B. Eventim/Eventbrite für Berlin)
+  - [ ] Separat deploybar: eigene Instanz pro Region (eigene DB/Port) oder eine Instanz mit Regionsfilter in der UI
+  - [ ] Berlin-Set: Venues sammeln und Scraper bauen
+  - [ ] Seitenleiste: Stadt-Chips und Locations-Baum zusammenlegen – die Städte stehen heute doppelt (30 Chips + Baum
+        nach Stadt), Stadt-Chip und «nur» bei der Stadt tun fast dasselbe (`state.city` vs. `state.hidden`);
+        Locations nach Region gruppieren (Zürich / Bern / Basel / Ostschweiz …) statt nach einzelnen Orten
+- [ ] 26. Fehlende Pop/Rock-Locations Deutschschweiz
   - Vorgehen: URLs vor dem Scrapen prüfen (nicht verifiziert); zuerst schauen, ob die Location auf PETZI verkauft
     → dann über den PETZI-Scraper, sonst eigener Scraper; Duplikate mit bestehenden Locations/Events vermeiden
   - (P?) = wahrscheinlich PETZI-Mitglied, bestätigen
@@ -65,22 +86,6 @@
   - [ ] Ostschweiz: Kugl (St. Gallen, kugl.ch, P?), Gare de Lion (Wil, garedelion.ch, P?)
   - [ ] Aargau, Solothurn, Baselland: Merkker (Baden, merkker.ch, P?), Odeon (Brugg, odeon-brugg.ch),
         Coq d'Or (Olten, coqdor.ch, P?), Guggenheim (Liestal, guggenheimliestal.ch, P?)
-- [ ] 13. statt nur locations auch Bandseiten direkt, um Touranouncement abzufangen und die Daten einzupflegen
-- [ ] 18. Regionen als «Plugins» (Länder/Bundesländer/Städte), getrennt deploybar – z. B. Schweiz und Berlin
-  - [ ] Venue-Sets pro Region in eigene Dateien auslagern (z. B. `regions/ch.yaml`, `regions/de-berlin.yaml`),
-        `config.yaml` wählt nur aus, welche Regionen aktiv sind
-  - [ ] Regionsspezifische Scraper in eigene Module (`sources/ch/…`, `sources/de/…`); nur aktive Regionen laden
-  - [ ] Pro Region: Zeitzone, Währung (CHF/EUR, Preisformat), Sprache der Status-Wörter, Ticketplattformen
-        (PETZI ↔ z. B. Eventim/Eventbrite für Berlin)
-  - [ ] Separat deploybar: eigene Instanz pro Region (eigene DB/Port) oder eine Instanz mit Regionsfilter in der UI
-  - [ ] Berlin-Set: Venues sammeln und Scraper bauen
-- [ ] 24. Verschwundene Events als abgesagt markieren: heute gilt ein Event nur als abgesagt, wenn die Location
-      es so beschriftet – verschwindet es einfach aus dem Programm, bleibt es im Kalender stehen
-  - [ ] Pro Lauf vergleichen: kommende Events der Location, die nicht mehr in der Liste sind (`last_seen` älter als
-        der aktuelle Lauf) -> abgesagt markieren und markierten Benutzern melden (wie heute bei «abgesagt»)
-  - [ ] Nur nach erfolgreichem Lauf mit plausibler Anzahl Events (nicht bei 0 Events/Fehler/Seitenumbau), evtl.
-        erst nach 2 Läufen ohne Treffer; X-tra lädt ohne «Alle anzeigen» nur 9 Events -> dort nicht anwenden
-  - [ ] Taucht das Event wieder auf: Absage zurücknehmen
 ## Layout & Bedienung
 
 - [x] 7. Optimierungen am UX (v1.10.0)
@@ -95,10 +100,26 @@
   - [x] Option zur Wahl der Akzentfarbe (6 Farben, je hell/dunkel abgestimmt) (v1.10.0)
   - [x] Option für Dark-/Lightmode (System / Hell / Dunkel) – pro Gerät gespeichert, auch für Gäste (v1.10.0)
   - [x] add a disclaimer and copyright notice at the bottom (`settings.copyright`) (v1.14.0)
-- [ ] 22. Neuer Name für die App finden und im Code anpassen (Titel, Header, iCal-Kalendername, Telegram-Texte,
+- [x] 17. UI-Review (v1.19.0)
+  - [x] «neu» nur für Events nach dem Erstimport einer Location (vorher war nach dem Aufsetzen alles «neu»);
+        gilt auch für `?new=` im iCal-Abo
+  - [x] Status-Wort vorne im Titel («Abgesagt: …», «SOLD OUT – …») und bei PETZI/Exil auch hinten entfernen –
+        der Status steht als Badge da; Abgesagtes/Verschobenes ans Ende des Tages
+  - [x] Lange laufende Events (> 7 Tage, schon begonnen) im Block «Läuft gerade» statt jeden Tag unter «heute»
+  - [x] Hinweis «Filter: … · zurücksetzen» über der Liste, Anzahl aktiver Filter am mobilen Filter-Knopf
+  - [x] Knopf «✕ Filter zurücksetzen» oben in der Seitenleiste und über der Liste (nur wenn Filter aktiv) (v1.19.1)
+  - [x] Mobil: Filter als Vollbild mit «N Events anzeigen», kürzere Statuszeile, Uhrzeit in der Infozeile statt
+        eigener Spalte; Monatsüberschrift bleibt beim Scrollen oben
+  - [x] Genres: die 8 häufigsten, Rest hinter «+ mehr»; Monatsansicht: «+N weitere» klappt den Tag auf
+  - [x] Schneller: Suche wartet 150 ms nach dem Tippen, 200 Events pro Seite («Weitere anzeigen»),
+        Benutzerdaten parallel laden, Location-Farben vorberechnet
+  - [x] «Jetzt prüfen» wartet auf das echte Laufende (`running` in `/api/venues`) statt fix 20 Sekunden
+  - [x] Ansicht «Kompakt» (eine Zeile pro Event), Tooltip-Infos (Popularität, wer hingeht) per Antippen,
+        sichtbarer Tastatur-Fokus, `aria-pressed` an Chips und Umschaltern
+- [ ] 20. Neuer Name für die App finden und im Code anpassen (Titel, Header, iCal-Kalendername, Telegram-Texte,
       README, Docker-Image/Container, Paketname `konzert_agent`)
-- [ ] 23. Animiertes Logo im Header im Stil der Ghostty-Website (animierter ASCII-Geist) – passend zum neuen
-      Namen (22); hell/dunkel und Akzentfarbe berücksichtigen, `prefers-reduced-motion` respektieren
+- [ ] 27. Animiertes Logo im Header im Stil der Ghostty-Website (animierter ASCII-Geist) – passend zum neuen
+      Namen (20); hell/dunkel und Akzentfarbe berücksichtigen, `prefers-reduced-motion` respektieren
 
 ## Userfunktionen
 
@@ -110,15 +131,19 @@
   - [x] Folgen per ＋ beim Konzert oder per Name im Tab «Meine»; ★ in der Liste, «★ Gefolgte Bands» im Dashboard (v1.12.0)
   - [x] Treffer über erkannte Bands oder Name als ganze Wörter im Titel (auch Support-Bands) (v1.12.0)
   - [x] Telegram: «⭐ Neue Show …» immer (auch bei «Aus»), abschaltbar; nicht doppelt in der allgemeinen Liste (v1.12.0)
-- [ ] 17. Persönliches Dashboard funktionaler + soziale Funktionen
+- [ ] 21. Einstellungen (Telegram, Filter, Passwort …) in einen eigenen Tab «Einstellungen» verschieben – Platz für 22 und 23
+  - [ ] Hell/Dunkel und Akzentfarbe dorthin bzw. als Symbol in den Header – heute ganz unten in der Seitenleiste,
+        unter 66 Locations, kaum zu finden (auch für Gäste erreichbar lassen)
+- [ ] 22. Filter-Presets speichern (benannt, pro Benutzer), schnell wieder aufrufen; evtl. als Basis für
+      «Nur passende» bei Telegram und fürs iCal-Abo
+  - [ ] Filter auch in der URL (`?city=…&genre=…`), damit man eine gefilterte Ansicht als Link schicken kann –
+        heute nur im `localStorage`; gleiches Format wie die Presets und das iCal-Abo
+- [ ] 23. Mehr Optionen im neuen Benutzerbereich: einzelne Locations (oder ganze Städte) von der automatischen
+      Telegram-Benachrichtigung abwählen
+- [ ] 24. Persönliches Dashboard funktionaler + soziale Funktionen
   - [ ] Freunde wählen: Freunde sehen meine Konzertliste (interessiert / gehe hin)
   - [ ] Bei «Tickets kaufte jemand anders» auswählen, welcher Freund die Tickets gekauft hat
   - [ ] Persönlicher Kalender im Dashboard (eigene Konzerte als Monatsansicht)
-  - [ ] Einstellungen (Telegram, Filter, Passwort …) in einen eigenen Tab «Einstellungen» verschieben
-- [ ] 20. Mehr Optionen im neuen Benutzerbereich: einzelne Locations (oder ganze Städte) von der automatischen
-      Telegram-Benachrichtigung abwählen
-- [ ] 21. Filter-Presets speichern (benannt, pro Benutzer), schnell wieder aufrufen; evtl. als Basis für
-      «Nur passende» bei Telegram und fürs iCal-Abo
 
 ## Später
 
@@ -151,3 +176,7 @@
 
 Reihenfolge (2026-10-14): zuerst 6 (erledigt), dann 4 (erledigt).
 Reihenfolge (2026-10-15): 7 + 8 zusammen, dann 9 → 10, danach 11 und 12.
+Reihenfolge (2026-10-17): Nummern = Reihenfolge. 18 Tourdaten-Branch mergen → 19 verschwundene Events (vor 26) →
+Kleinkram (PETZI-Preise nachladen, Von-Bis im Archiv) → 20 Name (vor 25 und 27) → 21 Einstellungen-Tab → 22 Presets →
+23 Telegram-Locations → 24 Freunde → 25 Regionen-Struktur (nur wenn Berlin kommt) → 26 Locations (zuerst PETZI) →
+27 Logo; später: Preisfilter, Last.fm (wartet auf Key), Berlin-Set.

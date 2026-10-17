@@ -94,6 +94,9 @@ CREATE TABLE IF NOT EXISTS artists (
 """
 
 
+FIRST_IMPORT_HOURS = 12      # so lange nach dem ersten Event einer Location gilt alles als Erstimport
+
+
 def _now() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
@@ -428,7 +431,19 @@ class Store:
         sql += " ORDER BY date, time, title"
         with self.lock:
             rows = self.db.execute(sql, args).fetchall()
-        return [self._event_row(r) for r in rows]
+        out = [self._event_row(r) for r in rows]
+        if new_days:                        # Erstimport einer Location ist nicht «neu angekündigt»
+            since = self.new_since()
+            out = [e for e in out if e["first_seen"] >= since.get(e["venue_id"], "")]
+        return out
+
+    def new_since(self) -> dict[str, str]:
+        """Pro Location: ab wann ein Event als neu angekündigt gilt – was beim Erstimport schon im Programm
+        stand, ist nicht neu (sonst wäre nach dem Aufsetzen oder einer neuen Location alles «neu»)."""
+        with self.lock:
+            rows = self.db.execute("SELECT venue_id, MIN(first_seen) FROM events GROUP BY venue_id").fetchall()
+        return {v: (datetime.fromisoformat(t) + timedelta(hours=FIRST_IMPORT_HOURS)).isoformat(timespec="seconds")
+                for v, t in rows}
 
     def unnotified_events(self) -> list[dict]:
         """Kommende Events, die noch nicht gemeldet (bzw. als erledigt markiert) sind."""

@@ -72,9 +72,10 @@ def create_app(agent: Agent):
 
     def decorate(evs: list[dict]) -> list[dict]:
         cutoff = (datetime.now() - timedelta(days=cfg.settings.new_badge_days)).isoformat()
+        since = agent.store.new_since()                     # Erstimport einer Location ist nicht «neu»
         for e in evs:
             m = venue_meta.get(e["venue_id"], {})
-            e["is_new"] = e["first_seen"] >= cutoff
+            e["is_new"] = e["first_seen"] >= max(cutoff, since.get(e["venue_id"], ""))
             e["venue"] = m.get("name", e["venue_id"])        # Location inzwischen abgeschaltet -> ID
             e["city"] = m.get("city", "")
             e.setdefault("kind", event_kind(e["title"], e["tags"]))
@@ -97,7 +98,7 @@ def create_app(agent: Agent):
         for vid, m in venue_meta.items():
             out.append({**m, "upcoming": counts.get(vid, 0), "run": runs.get(vid)})
         return JSONResponse({"venues": out, "interval_hours": cfg.settings.interval_hours,
-                             "new_badge_days": cfg.settings.new_badge_days, "version": __version__,
+                             "new_badge_days": cfg.settings.new_badge_days, "version": __version__, "running": agent.running,
                              "copyright": cfg.settings.copyright})
 
     async def api_run(req):

@@ -178,12 +178,12 @@ class AgentTests(unittest.TestCase):
         new, cancelled = self.sent[0]
         self.assertEqual([e.title for e in new], ["Band C"])
         self.assertEqual(new[0].tags, ["Rock"])             # Details geladen
-        self.assertEqual([e.title for e in cancelled], ["Band A (abgesagt)"])
+        self.assertEqual([e.title for e in cancelled], ["Band A"])   # Status-Wort weg, Flag bleibt
         # Detailseite wurde nur für neue Events geholt
         self.assertEqual(self.fetcher.calls.count("https://www.petzi.ch/de/events/1-x-a/"), 1)
         # Web-Filter blendet Comedy aus
         evs = self.agent.filtered_events(self.agent.store.events())
-        self.assertEqual(sorted(e["title"] for e in evs), ["Band A (abgesagt)", "Band C"])
+        self.assertEqual(sorted(e["title"] for e in evs), ["Band A", "Band C"])
 
     def test_broken_venue_does_not_crash(self):
         self.fetcher.pages.pop(self.url)

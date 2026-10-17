@@ -45,12 +45,13 @@ class ExilSource(Source):
                 continue
             d = dates[0]
             title = m["title"].strip()
+            st = split_status(title)                # «54 Ultra (abgesagt)» -> «54 Ultra» + Status
             url = urljoin(base, a["href"])
             out.setdefault(url, self.make_event(
                 native_id=urlsplit(url).path.rstrip("/").rsplit("/", 1)[-1],
-                title=title, date=d, url=url,
-                sold_out=bool(m["sold"]),
-                cancelled="abgesagt" in title.lower(), moved=bool(_MOVED.search(title)) and "abgesagt" not in title.lower(),
+                title=st.title, date=d, url=url,
+                **st.flags(sold_out=bool(m["sold"]), cancelled="abgesagt" in title.lower(),
+                           moved=bool(_MOVED.search(title))),
                 tags=["Live"] if m["kind"].lower() == "live" else ["DJ"],
             ))
         return list(out.values())
