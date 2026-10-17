@@ -195,8 +195,10 @@ details.past[open] summary .dash-h::before{content:"▾ "}
 .drawer-h,.drawer-done{display:none}
 .tip{cursor:help}
 .ev .tm{display:none}
-.active-f{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;font-size:13px;color:var(--muted);margin:-6px 0 12px}
+.active-f{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted);margin:-6px 0 12px}
 .active-f b{color:var(--ink);font-weight:600}
+.btn.reset-f{border-color:var(--warn);color:var(--warn)}
+.btn.reset-f:hover{background:var(--warn);color:var(--panel)}
 .btn.sm{padding:5px 11px;font-size:12px}
 .btn.sm.on{background:var(--ink);color:var(--bg)}
 .load-more{display:flex;justify-content:center;padding:24px 0}
@@ -266,6 +268,7 @@ details.running .evs{padding-bottom:12px}
 <div class="layout">
   <aside id="aside">
     <div class="drawer-h">Filter <button class="btn sm" id="drawerClose" aria-label="Filter schliessen">✕</button></div>
+    <div class="group" id="resetGroup" hidden><button class="btn sm reset-f" id="resetSide">✕ Filter zurücksetzen</button></div>
     <div class="group">
       <div class="label">Suche</div>
       <input type="search" id="q" placeholder="Band, Genre …">
@@ -835,8 +838,9 @@ function render() {
   $("#drawerDone").textContent = `${list.length} ${noun} anzeigen`;
   const af = mine ? [] : activeFilters();
   $("#activeF").hidden = !af.length;
-  $("#activeF").innerHTML = af.length ? `<span>Filter:</span><b>${af.map(esc).join(" · ")}</b><button class="linkish" id="resetF">zurücksetzen</button>` : "";
+  $("#activeF").innerHTML = af.length ? `<span>Filter:</span><b>${af.map(esc).join(" · ")}</b><button class="btn sm reset-f" id="resetF">✕ Filter zurücksetzen</button>` : "";
   $("#filtersBtn").textContent = af.length ? `Filter · ${af.length}` : "Filter";
+  $("#resetGroup").hidden = !af.length;
   $("#view").classList.toggle("compact", state.compact && !mine);
   $("#compactBtn").classList.toggle("on", state.compact);
   $("#compactBtn").setAttribute("aria-pressed", state.compact);
@@ -1018,6 +1022,7 @@ $("#filtersBtn").onclick = () => openDrawer(true);
 $("#drawerClose").onclick = $("#drawerDone").onclick = () => { openDrawer(false); window.scrollTo(0, 0); };
 document.addEventListener("keydown", e => { if (e.key === "Escape" && $("#aside").classList.contains("open")) openDrawer(false); });
 $("#activeF").addEventListener("click", e => { if (e.target.id === "resetF") resetFilters(); });
+$("#resetSide").onclick = resetFilters;
 $("#compactBtn").onclick = () => { state.compact = !state.compact; store.set("compact", state.compact); render(); };
 $("#view").addEventListener("click", e => {
   if (e.target.closest("[data-more]")) { state.limit += PAGE; render(); return; }
