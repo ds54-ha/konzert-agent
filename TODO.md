@@ -74,6 +74,9 @@
         (PETZI ↔ z. B. Eventim/Eventbrite für Berlin)
   - [ ] Separat deploybar: eigene Instanz pro Region (eigene DB/Port) oder eine Instanz mit Regionsfilter in der UI
   - [ ] Berlin-Set: Venues sammeln und Scraper bauen
+  - [ ] Seitenleiste: Stadt-Chips und Locations-Baum zusammenlegen – die Städte stehen heute doppelt (30 Chips + Baum
+        nach Stadt), Stadt-Chip und «nur» bei der Stadt tun fast dasselbe (`state.city` vs. `state.hidden`);
+        Locations nach Region gruppieren (Zürich / Bern / Basel / Ostschweiz …) statt nach einzelnen Orten
 - [ ] 24. Verschwundene Events als abgesagt markieren: heute gilt ein Event nur als abgesagt, wenn die Location
       es so beschriftet – verschwindet es einfach aus dem Programm, bleibt es im Kalender stehen
   - [ ] Pro Lauf vergleichen: kommende Events der Location, die nicht mehr in der Liste sind (`last_seen` älter als
@@ -95,6 +98,21 @@
   - [x] Option zur Wahl der Akzentfarbe (6 Farben, je hell/dunkel abgestimmt) (v1.10.0)
   - [x] Option für Dark-/Lightmode (System / Hell / Dunkel) – pro Gerät gespeichert, auch für Gäste (v1.10.0)
   - [x] add a disclaimer and copyright notice at the bottom (`settings.copyright`) (v1.14.0)
+- [x] 25. UI-Review (v1.19.0)
+  - [x] «neu» nur für Events nach dem Erstimport einer Location (vorher war nach dem Aufsetzen alles «neu»);
+        gilt auch für `?new=` im iCal-Abo
+  - [x] Status-Wort vorne im Titel («Abgesagt: …», «SOLD OUT – …») und bei PETZI/Exil auch hinten entfernen –
+        der Status steht als Badge da; Abgesagtes/Verschobenes ans Ende des Tages
+  - [x] Lange laufende Events (> 7 Tage, schon begonnen) im Block «Läuft gerade» statt jeden Tag unter «heute»
+  - [x] Hinweis «Filter: … · zurücksetzen» über der Liste, Anzahl aktiver Filter am mobilen Filter-Knopf
+  - [x] Mobil: Filter als Vollbild mit «N Events anzeigen», kürzere Statuszeile, Uhrzeit in der Infozeile statt
+        eigener Spalte; Monatsüberschrift bleibt beim Scrollen oben
+  - [x] Genres: die 8 häufigsten, Rest hinter «+ mehr»; Monatsansicht: «+N weitere» klappt den Tag auf
+  - [x] Schneller: Suche wartet 150 ms nach dem Tippen, 200 Events pro Seite («Weitere anzeigen»),
+        Benutzerdaten parallel laden, Location-Farben vorberechnet
+  - [x] «Jetzt prüfen» wartet auf das echte Laufende (`running` in `/api/venues`) statt fix 20 Sekunden
+  - [x] Ansicht «Kompakt» (eine Zeile pro Event), Tooltip-Infos (Popularität, wer hingeht) per Antippen,
+        sichtbarer Tastatur-Fokus, `aria-pressed` an Chips und Umschaltern
 - [ ] 22. Neuer Name für die App finden und im Code anpassen (Titel, Header, iCal-Kalendername, Telegram-Texte,
       README, Docker-Image/Container, Paketname `konzert_agent`)
 - [ ] 23. Animiertes Logo im Header im Stil der Ghostty-Website (animierter ASCII-Geist) – passend zum neuen
@@ -115,10 +133,14 @@
   - [ ] Bei «Tickets kaufte jemand anders» auswählen, welcher Freund die Tickets gekauft hat
   - [ ] Persönlicher Kalender im Dashboard (eigene Konzerte als Monatsansicht)
   - [ ] Einstellungen (Telegram, Filter, Passwort …) in einen eigenen Tab «Einstellungen» verschieben
+    - [ ] Hell/Dunkel und Akzentfarbe dorthin bzw. als Symbol in den Header – heute ganz unten in der Seitenleiste,
+          unter 66 Locations, kaum zu finden (auch für Gäste erreichbar lassen)
 - [ ] 20. Mehr Optionen im neuen Benutzerbereich: einzelne Locations (oder ganze Städte) von der automatischen
       Telegram-Benachrichtigung abwählen
 - [ ] 21. Filter-Presets speichern (benannt, pro Benutzer), schnell wieder aufrufen; evtl. als Basis für
       «Nur passende» bei Telegram und fürs iCal-Abo
+  - [ ] Filter auch in der URL (`?city=…&genre=…`), damit man eine gefilterte Ansicht als Link schicken kann –
+        heute nur im `localStorage`; gleiches Format wie die Presets und das iCal-Abo
 
 ## Später
 

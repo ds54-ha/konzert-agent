@@ -2,7 +2,7 @@ import json
 import sqlite3
 import tempfile
 import unittest
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from konzert_agent.config import VenueConfig
 from konzert_agent.models import Event
@@ -32,6 +32,15 @@ class SplitStatusTests(unittest.TestCase):
         self.assertEqual((st.title, st.moved, st.moved_note), ("Betontod", True, "verlegt ins Dynamo"))
         st = split_status("RAPK (verschoben auf 13.04.2027)")
         self.assertEqual((st.title, st.moved_note), ("RAPK", "verschoben auf 13.04.2027"))
+
+    def test_status_in_front(self):                # «Abgesagt: Band» – PETZI/Exil haben das Wort sonst im Titel
+        st = split_status("Abgesagt: Brokeboys Release Party")
+        self.assertEqual((st.title, st.cancelled), ("Brokeboys Release Party", True))
+        self.assertEqual(split_status("SOLD OUT – Nena").title, "Nena")
+        st = split_status("54 Ultra (abgesagt)")
+        self.assertEqual((st.title, st.cancelled), ("54 Ultra", True))
+        self.assertEqual(split_status("Verschoben").title, "Verschoben")          # ohne Rest bleibt der Titel
+        self.assertEqual(split_status("Verlegt Band").title, "Verlegt Band")      # ohne Trennzeichen kein Status
 
     def test_cancelled_beats_moved(self):
         f = split_status("Band - VERSCHOBEN").flags(cancelled=True)
@@ -107,3 +116,17 @@ class WebTests(MemberBase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NewSinceTests(unittest.TestCase):
+    def test_first_import_is_not_new(self):         # nach dem Aufsetzen wäre sonst alles «neu»
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        store = Store(f"{tmp.name}/t.db")
+        store.upsert([Event("v", "1", "Alt", D)])
+        store.db.execute("UPDATE events SET first_seen='2026-01-01T10:00:00'")
+        store.db.execute("INSERT INTO events (uid, venue_id, native_id, title, date, first_seen, last_seen)"
+                         " VALUES ('v:2','v','2','Neu',?, '2026-01-02T10:00:00', 'x')", (D.isoformat(),))
+        self.assertEqual(store.new_since(), {"v": "2026-01-01T22:00:00"})
+        store.db.execute("UPDATE events SET first_seen=? WHERE uid='v:2'", (datetime.now().isoformat(timespec="seconds"),))
+        self.assertEqual([e["uid"] for e in store.events(new_days=7)], ["v:2"])

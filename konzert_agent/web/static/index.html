@@ -51,7 +51,9 @@ main{padding:20px 28px 60px;min-width:0}
 .group{margin-bottom:22px}
 .label{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin-bottom:8px;font-weight:600}
 input[type=search]{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--panel)}
-input[type=search]:focus{outline:none;border-color:var(--ink)}
+input[type=search]:focus{border-color:var(--ink)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input[type=search]:focus-visible{outline-offset:0}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip{border:none;background:var(--chip);padding:6px 11px;border-radius:999px;cursor:pointer;font-size:13px}
 .chip.on{background:var(--ink);color:var(--bg)}
@@ -82,7 +84,8 @@ input[type=search]:focus{outline:none;border-color:var(--ink)}
 .count{color:var(--muted);font-size:13px}
 
 /* Liste */
-.month-h{font-size:28px;font-weight:800;letter-spacing:-.02em;margin:26px 0 10px;display:flex;align-items:baseline;gap:10px}
+.month-h{font-size:28px;font-weight:800;letter-spacing:-.02em;margin:18px 0 2px;padding:8px 0;display:flex;align-items:baseline;gap:10px;
+  position:sticky;top:0;z-index:2;background:var(--bg)}
 .month-h small{font-size:13px;color:var(--muted);font-weight:500}
 .day{display:grid;grid-template-columns:72px 1fr;gap:14px;padding:14px 0;border-top:1px solid var(--line)}
 .dlabel{line-height:1}
@@ -181,21 +184,61 @@ details.past[open] summary .dash-h::before{content:"▾ "}
 .pill:hover{background:var(--ink);color:var(--bg)}
 .more{font-size:11px;color:var(--muted)}
 
+.more{display:block;border:none;background:none;padding:0;cursor:pointer;text-align:left}
+.more:hover{color:var(--ink);text-decoration:underline}
+
 .empty{padding:60px 0;text-align:center;color:var(--muted)}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;
-  border-radius:999px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
+  border-radius:16px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;white-space:pre-line;max-width:min(520px,calc(100vw - 32px));z-index:60}
 .toast.show{opacity:1}
 .filters-btn{display:none}
+.drawer-h,.drawer-done{display:none}
+.tip{cursor:help}
+.ev .tm{display:none}
+.active-f{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;font-size:13px;color:var(--muted);margin:-6px 0 12px}
+.active-f b{color:var(--ink);font-weight:600}
+.btn.sm{padding:5px 11px;font-size:12px}
+.btn.sm.on{background:var(--ink);color:var(--bg)}
+.load-more{display:flex;justify-content:center;padding:24px 0}
+details.running{border:1px dashed var(--line);border-radius:12px;padding:4px 14px;margin:14px 0 4px}
+details.running summary{cursor:pointer;padding:8px 0;font-weight:600;list-style:none}
+details.running summary::-webkit-details-marker{display:none}
+details.running summary::before{content:"▸ ";color:var(--muted)}
+details.running[open] summary::before{content:"▾ "}
+details.running summary small{color:var(--muted);font-weight:400;margin-left:6px}
+details.running .evs{padding-bottom:12px}
+/* Kompakt: eine Zeile pro Event */
+#view.compact .day{padding:6px 0;gap:10px}
+#view.compact .dlabel .dn{font-size:22px}
+#view.compact .evs{gap:4px}
+#view.compact .ev{padding:6px 12px;box-shadow:none;border-radius:8px}
+#view.compact .ev .body{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:12px}
+#view.compact .ev .t{font-size:15px}
+#view.compact .ev .meta{margin-top:0}
+#view.compact .lineup,#view.compact .tag{display:none}
+#view.compact .marks{margin-top:0;flex-basis:100%}
 .who{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
 .who form{margin:0}
 
 @media (max-width:860px){
   header{padding:20px 16px 14px}
   .layout{grid-template-columns:1fr}
-  aside{position:static;max-height:none;border-right:none;border-bottom:1px solid var(--line);padding:16px;display:none}
+  /* Filter als Vollbild-Schublade: Liste bleibt, wo sie war; unten «N Events anzeigen» */
+  aside{position:fixed;inset:0;z-index:50;max-height:none;border-right:none;padding:0 16px;display:none;background:var(--bg)}
   aside.open{display:block}
-  main{padding:16px 16px 60px}
+  body.noscroll{overflow:hidden}
+  .drawer-h{display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:1;background:var(--bg);
+    padding:14px 0 10px;margin-bottom:8px;border-bottom:1px solid var(--line);font-weight:800;font-size:20px}
+  .drawer-done{display:flex;justify-content:center;position:sticky;bottom:0;background:var(--bg);padding:12px 0 16px;border-top:1px solid var(--line)}
+  .drawer-done .btn{width:100%;justify-content:center;padding:12px}
+  main{padding:12px 16px 60px}
   .filters-btn{display:inline-flex}
+  .sub .sub-x{display:none}
+  .toolbar{gap:8px;margin-bottom:12px}
+  .seg button{padding:6px 10px;font-size:12px}
+  .month-h{font-size:22px}
+  .ev .time{display:none}
+  .ev .tm{display:inline}
   .day{grid-template-columns:52px 1fr;gap:10px}
   .dlabel .dn{font-size:26px}
   .cell{min-height:64px;padding:3px}
@@ -222,6 +265,7 @@ details.past[open] summary .dash-h::before{content:"▾ "}
 
 <div class="layout">
   <aside id="aside">
+    <div class="drawer-h">Filter <button class="btn sm" id="drawerClose" aria-label="Filter schliessen">✕</button></div>
     <div class="group">
       <div class="label">Suche</div>
       <input type="search" id="q" placeholder="Band, Genre …">
@@ -271,6 +315,7 @@ details.past[open] summary .dash-h::before{content:"▾ "}
         <div class="hint">Andere Angemeldete sehen, wohin du gehst – und du siehst, wohin sie gehen (nur wer auch teilt).</div>
       </div>
     </div>
+    <div class="drawer-done"><button class="btn primary" id="drawerDone">Events anzeigen</button></div>
   </aside>
 
   <main>
@@ -278,9 +323,11 @@ details.past[open] summary .dash-h::before{content:"▾ "}
       <div class="tools">
         <div class="seg" id="viewSeg"><button data-view="list" class="on">Liste</button><button data-view="month">Monat</button><button data-view="archive" title="Vergangene Events">Archiv</button><button data-view="mine" id="mineTab" hidden>Meine</button></div>
         <div class="seg" id="sortSeg" title="Sortierung der Liste"><button data-sort="date" class="on">Datum</button><button data-sort="pop">Popularität</button></div>
+        <button class="btn sm" id="compactBtn" title="Eine Zeile pro Event" aria-pressed="false">≡ Kompakt</button>
       </div>
       <span class="count" id="count"></span>
     </div>
+    <div class="active-f" id="activeF" hidden></div>
     <div id="view"></div>
   </main>
 </div>
@@ -313,8 +360,14 @@ const state = {
   hidden: new Set(store.get("hidden", [])), view: store.get("view", "list"), cal: new Date(),
   genres: new Set(store.get("genres", [])), pops: new Set(store.get("pops", [])), sort: store.get("sort", "date"),
   mine: store.get("mine", ""), kinds: new Set(store.get("kinds", [])),
-  from: store.get("from", ""), to: store.get("to", ""), open: new Set(store.get("openCities", []))
+  from: store.get("from", ""), to: store.get("to", ""), open: new Set(store.get("openCities", [])),
+  compact: store.get("compact", false), allGenres: false, calOpen: new Set(),   // calOpen: Monatstage mit allen Events
+  limit: 0, filterKey: ""                       // limit: so viele Events rendern, «Weitere anzeigen» erhöht
 };
+const PAGE = 200;                               // Events pro Seite – 1800 Karten auf einmal machen Tippen/Filtern zäh
+const TOP_GENRES = 8;                           // mehr Genres hinter «+ mehr»
+const LONG_DAYS = 7;                            // länger laufende Events: eigener Block statt jeden Tag unter «heute»
+let vColor = new Map();
 state.cal.setDate(1);
 if (location.hash === "#meine") state.view = "mine";
 
@@ -335,7 +388,31 @@ const bandKey = s => String(s).normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
 const followedKey = name => (follows.follows.find(f => f.key === bandKey(name)) || {}).key;
 const fans = n => n >= 1e6 ? (n/1e6).toFixed(1)+" Mio." : n >= 1e3 ? Math.round(n/1e3)+"k" : String(n);
 
-function venueColor(id) { const i = venues.findIndex(v => v.id === id); return PALETTE[(i < 0 ? 0 : i) % PALETTE.length]; }
+const venueColor = id => vColor.get(id) || PALETTE[0];
+
+function activeFilters() {                  // [Text, …] der gesetzten Filter – für Hinweis + Zähler am Filter-Knopf
+  const f = [];
+  if (state.q.trim()) f.push(`«${state.q.trim()}»`);
+  if (state.view !== "archive" && state.range !== "all") f.push(RANGES.find(([k]) => k === state.range)[1]);
+  if (state.city) f.push(state.city);
+  const on = venues.filter(v => !state.hidden.has(v.id)).length;
+  if (on < venues.length) f.push(`${on} von ${venues.length} Locations`);
+  if (state.kinds.size) f.push([...state.kinds].join(", "));
+  if (state.genres.size) f.push([...state.genres].join(", "));
+  if (state.pops.size) f.push([...state.pops].join(", "));
+  if (isMember() && state.mine) f.push(MINE.find(([k]) => k === state.mine)[1]);
+  if (state.onlyNew) f.push("nur neue");
+  return f;
+}
+
+function resetFilters() {
+  Object.assign(state, {q: "", range: "all", city: "", onlyNew: false, mine: "", from: "", to: ""});
+  [state.hidden, state.kinds, state.genres, state.pops].forEach(s => s.clear());
+  ["range", "city", "mine", "from", "to"].forEach(k => store.set(k, state[k]));
+  ["hidden", "kinds", "genres", "pops"].forEach(k => store.set(k, []));
+  $("#q").value = ""; $("#onlyNew").checked = false;
+  renderSidebar(); render();
+}
 
 function rangeBounds() {
   const t = new Date(); t.setHours(0,0,0,0);
@@ -408,9 +485,14 @@ function renderSidebar() {
   const gCount = new Map();
   events.forEach(e => (x(e).genres || []).forEach(g => gCount.set(g, (gCount.get(g) || 0) + 1)));
   $("#genreGroup").hidden = !gCount.size;
+  // die häufigsten Genres sofort, der Rest hinter «+ mehr» (gewählte bleiben immer sichtbar)
+  const gSorted = [...gCount].sort((a, b) => b[1] - a[1]);
+  const gShown = state.allGenres ? gSorted : gSorted.filter(([g], i) => i < TOP_GENRES || state.genres.has(g));
+  const gMore = gSorted.length > TOP_GENRES
+    ? `<button class="chip" data-more-genres>${state.allGenres ? "weniger" : `+ ${gSorted.length - gShown.length} mehr`}</button>` : "";
   $("#genres").innerHTML = [`<button class="chip ${state.genres.size?"":"on"}" data-k="">Alle</button>`,
-    ...[...gCount].sort((a, b) => b[1] - a[1]).map(([g, n]) =>
-      `<button class="chip ${state.genres.has(g)?"on":""}" data-k="${esc(g)}">${esc(g)}<small>${n}</small></button>`)].join("");
+    ...gShown.map(([g, n]) =>
+      `<button class="chip ${state.genres.has(g)?"on":""}" data-k="${esc(g)}">${esc(g)}<small>${n}</small></button>`), gMore].join("");
   $("#popGroup").hidden = !events.some(e => x(e).popularity_label);
   $("#mineGroup").hidden = !isMember();
   $("#mine").innerHTML = MINE.filter(([k]) => k !== "others" || marks.share)
@@ -437,6 +519,7 @@ function renderSidebar() {
   $("#accents").innerHTML = KA_THEME.ACCENTS.map(([k, name, light]) =>
     `<button class="swatch ${KA_THEME.accent()===k?"on":""}" data-accent="${k}" title="${name}" style="background:${light}"></button>`).join("");
   $("#shareBox").hidden = !isMember();
+  document.querySelectorAll("aside .chip[data-k], aside .seg button").forEach(b => b.setAttribute("aria-pressed", b.classList.contains("on")));
 }
 
 function venueRow(v) {
@@ -457,7 +540,7 @@ function popBadge(e) {
   const who = (x(e).artists || []).filter(a => a.fans != null && (a.confidence === "hoch" || a.confidence === "mittel"))
     .map(a => `${a.name}${a.country ? " ("+a.country+")" : ""}: ${fans(a.fans)} Fans auf Deezer`).join("\n");
   const bars = [0,1,2,3].map(i => `<i class="${i <= lvl ? "on" : ""}"></i>`).join("");
-  return `<span class="pop ${lvl === 3 ? "star" : ""}" title="Popularität ${x(e).popularity}/100\n${esc(who)}"><span class="bars">${bars}</span>${esc(x(e).popularity_label)}</span>`;
+  return `<span class="pop tip ${lvl === 3 ? "star" : ""}" title="Popularität ${x(e).popularity}/100\n${esc(who)}"><span class="bars">${bars}</span>${esc(x(e).popularity_label)}</span>`;
 }
 
 function evCard(e) {
@@ -466,7 +549,7 @@ function evCard(e) {
     e.sold_out ? `<span class="badge b-sold">ausverkauft</span>` : "",
     e.cancelled ? `<span class="badge b-cxl">abgesagt</span>` : "",
     e.moved ? `<span class="badge b-cxl">verschoben</span>` : "",
-    isMember() && followedUids.has(e.uid) ? `<span class="badge b-fol" title="Du folgst: ${esc(followedUids.get(e.uid).join(", "))}">★ ${esc(followedUids.get(e.uid).join(", "))}</span>` : "",
+    isMember() && followedUids.has(e.uid) ? `<span class="badge b-fol tip" title="Du folgst: ${esc(followedUids.get(e.uid).join(", "))}">★ ${esc(followedUids.get(e.uid).join(", "))}</span>` : "",
   ].join("");
   const genres = x(e).genres && x(e).genres.length ? x(e).genres : e.tags;
   const styleTip = (x(e).styles || []).join(", ");
@@ -477,7 +560,7 @@ function evCard(e) {
   return `<div class="ev ${e.cancelled||e.moved?"cxl":""} ${m && m.status==="going"?"going":""}" style="border-left:4px solid ${venueColor(e.venue_id)}">
     <span class="time">${esc(e.time || "")}</span>
     <span class="body"><a class="t" href="${safeUrl(e.url)}" target="_blank" rel="noopener">${esc(e.title)}</a>
-    <div class="meta"><span>${esc(e.venue)}${e.city ? ", "+esc(e.city) : ""}${range}${price}</span>${badges}${popBadge(e)}${tags}</div>
+    <div class="meta">${e.time ? `<span class="tm mono">${esc(e.time)}</span>` : ""}<span>${esc(e.venue)}${e.city ? ", "+esc(e.city) : ""}${range}${price}</span>${badges}${popBadge(e)}${tags}</div>
     ${e.moved && e.moved_note ? `<div class="moved">→ ${esc(e.moved_note)}</div>` : ""}${lineup(e)}${markBar(e)}</span></div>`;
 }
 
@@ -505,7 +588,7 @@ function markBar(e) {                       // nur für Angemeldete
   const ticket = m && m.status === "going" ? `<select data-uid="${uid}" data-ticket class="${m.ticket==="none"?"todo":""}">${
     TICKETS.map(([k, l]) => `<option value="${k}" ${m.ticket===k?"selected":""}>${l}</option>`).join("")}</select>` : "";
   const others = marks.others[e.uid] || [];
-  const friends = others.length ? `<span class="friends" title="${esc(others.map(o => o.user + (o.status==="going"?": geht hin":": interessiert")).join("\n"))}">👥 ${
+  const friends = others.length ? `<span class="friends tip" title="${esc(others.map(o => o.user + (o.status==="going"?": geht hin":": interessiert")).join("\n"))}">👥 ${
     others.map(o => esc(o.user) + (o.status==="going" ? " ✓" : " ☆")).join(", ")}</span>` : "";
   // Band folgen: bei einem Act hier, bei mehreren im Line-up
   const acts = x(e).artists || [];
@@ -517,22 +600,36 @@ function renderList(list, past = false) {       // past: Archiv, neueste zuerst
   if (!list.length) return past && !archive.length
     ? `<div class="empty">Noch keine vergangenen Events – das Archiv füllt sich mit der Zeit (Events bleiben nach ihrem Datum gespeichert).</div>`
     : `<div class="empty">Keine ${past ? "vergangenen " : ""}Konzerte für diese Filter.</div>`;
-  const byDay = new Map();
-  list.forEach(e => { const k = !past && e.date < todayIso && e.end_date ? todayIso : e.date; (byDay.get(k) || byDay.set(k, []).get(k)).push(e); });
-  let html = "", lastMonth = "";
+  // schon laufende, lange Events (Ausstellung, Quiz-Reihe …) nicht jeden Tag zuoberst, sondern in einem Block
+  const running = past ? [] : list.filter(e => e.date < todayIso && e.end_date && (parse(e.end_date) - parse(e.date)) / 864e5 > LONG_DAYS);
+  const rest = running.length ? list.filter(e => !running.includes(e)) : list;
+  const byDay = new Map(), monthN = new Map();
+  rest.forEach(e => {
+    const k = !past && e.date < todayIso && e.end_date ? todayIso : e.date;
+    (byDay.get(k) || byDay.set(k, []).get(k)).push(e);
+    monthN.set(k.slice(0,7), (monthN.get(k.slice(0,7)) || 0) + 1);
+  });
+  const off = e => e.cancelled || e.moved ? 1 : 0;     // Abgesagtes/Verschobenes ans Ende des Tages
+  let html = running.length ? `<details class="running" ${store.get("runningOpen", false) ? "open" : ""}>
+    <summary>Läuft gerade<small>${running.length} länger laufende Event${running.length === 1 ? "" : "s"}</small></summary>
+    <div class="evs">${running.map(evCard).join("")}</div></details>` : "";
+  let lastMonth = "", shown = 0;
   const days = [...byDay.keys()].sort();
-  (past ? days.reverse() : days).forEach(k => {
-    const d = parse(k), mk = k.slice(0,7);
+  for (const k of past ? days.reverse() : days) {
+    if (shown >= state.limit) break;
+    const d = parse(k), mk = k.slice(0,7), evs = byDay.get(k).sort((a, b) => off(a) - off(b));
     if (mk !== lastMonth) {
-      const n = list.filter(e => e.date.slice(0,7) === mk).length;
-      html += `<div class="month-h">${MONTHS[d.getMonth()]} <small>${d.getFullYear()} · ${n}</small></div>`;
+      html += `<div class="month-h">${MONTHS[d.getMonth()]} <small>${d.getFullYear()} · ${monthN.get(mk)}</small></div>`;
       lastMonth = mk;
     }
     html += `<div class="day"><div class="dlabel ${k===todayIso?"today":""}"><div class="wd">${k===todayIso?"heute":WD[d.getDay()]}</div><div class="dn">${d.getDate()}</div></div>
-      <div class="evs">${byDay.get(k).map(evCard).join("")}</div></div>`;
-  });
-  return html;
+      <div class="evs">${evs.map(evCard).join("")}</div></div>`;
+    shown += evs.length;
+  }
+  return html + moreBtn(rest.length - shown);
 }
+
+const moreBtn = n => n > 0 ? `<div class="load-more"><button class="btn" data-more>Weitere ${Math.min(n, PAGE)} von ${n} anzeigen</button></div>` : "";
 
 function datedRow(e) {                     // Event mit vollem Datum (für Listen, die nicht nach Tag gruppiert sind)
   const d = parse(e.date);
@@ -544,7 +641,8 @@ function datedRow(e) {                     // Event mit vollem Datum (für Liste
 function renderByPopularity(list) {
   if (!list.length) return `<div class="empty">Keine Konzerte für diese Filter.</div>`;
   const pop = e => x(e).popularity ?? -1;
-  return [...list].sort((a, b) => pop(b) - pop(a) || a.date.localeCompare(b.date)).map(datedRow).join("");
+  return [...list].sort((a, b) => pop(b) - pop(a) || a.date.localeCompare(b.date)).slice(0, state.limit).map(datedRow).join("")
+    + moreBtn(list.length - state.limit);
 }
 
 const isPast = e => (e.end_date || e.date) < todayIso;
@@ -699,10 +797,10 @@ function renderMonth(list) {
   for (let i = 0; i < 42; i++) {
     const d = new Date(start); d.setDate(start.getDate() + i);
     if (i >= 35 && d.getMonth() !== m) break;
-    const k = iso(d), evs = byDay.get(k) || [];
-    const shown = evs.slice(0, 4).map(e => `<a class="pill" style="--vc:${venueColor(e.venue_id)}" href="${safeUrl(e.url)}" target="_blank" rel="noopener"
+    const k = iso(d), evs = byDay.get(k) || [], all = state.calOpen.has(k);
+    const shown = (all ? evs : evs.slice(0, 4)).map(e => `<a class="pill" style="--vc:${venueColor(e.venue_id)}" href="${safeUrl(e.url)}" target="_blank" rel="noopener"
       title="${esc((e.time ? e.time+" · " : "") + e.title + " – " + e.venue)}">${pillMark(e)}${e.is_new?"● ":""}${esc(e.title)}</a>`).join("");
-    const more = evs.length > 4 ? `<div class="more">+${evs.length - 4} weitere</div>` : "";
+    const more = evs.length > 4 ? `<button class="more" data-day="${k}">${all ? "weniger" : `+${evs.length - 4} weitere`}</button>` : "";
     cells += `<div class="cell ${d.getMonth()!==m?"out":""} ${k===todayIso?"today":""}"><div class="num">${d.getDate()}</div>${shown}${more}</div>`;
   }
   return `<div class="toolbar"><div class="cal-nav"><button class="btn" id="prevM">←</button>
@@ -727,10 +825,25 @@ function render() {
     api("api/events?past=1").then(a => { archive = a; render(); });
   }
   const list = past ? visible(archive || []) : visible(state.view === "month" && archive ? archive.concat(events) : events);
+  // andere Filter oder Ansicht -> wieder nur die erste Seite rendern; Markieren/Neuladen lässt die Seitenzahl stehen
+  const key = JSON.stringify([state.q, state.range, state.city, state.onlyNew, [...state.hidden], state.view, [...state.genres],
+    [...state.pops], state.sort, state.mine, [...state.kinds], state.from, state.to]);
+  if (key !== state.filterKey) { state.filterKey = key; state.limit = PAGE; }
   $("#rangeGroup").hidden = past;             // Zeitraum gilt nur für Kommendes
-  $("#count").textContent = mine ? `${myEvents.length} markiert` : `${list.length} ${past ? "vergangene " : ""}Event${list.length===1?"":"s"}`;
+  const noun = `${past ? "vergangene " : ""}Event${list.length===1?"":"s"}`;
+  $("#count").textContent = mine ? `${myEvents.length} markiert` : `${list.length} ${noun}`;
+  $("#drawerDone").textContent = `${list.length} ${noun} anzeigen`;
+  const af = mine ? [] : activeFilters();
+  $("#activeF").hidden = !af.length;
+  $("#activeF").innerHTML = af.length ? `<span>Filter:</span><b>${af.map(esc).join(" · ")}</b><button class="linkish" id="resetF">zurücksetzen</button>` : "";
+  $("#filtersBtn").textContent = af.length ? `Filter · ${af.length}` : "Filter";
+  $("#view").classList.toggle("compact", state.compact && !mine);
+  $("#compactBtn").classList.toggle("on", state.compact);
+  $("#compactBtn").setAttribute("aria-pressed", state.compact);
+  $("#compactBtn").hidden = mine || state.view === "month";
   document.querySelectorAll("#viewSeg button").forEach(b => b.classList.toggle("on", b.dataset.view === state.view));
   document.querySelectorAll("#sortSeg button").forEach(b => b.classList.toggle("on", b.dataset.sort === state.sort));
+  document.querySelectorAll("#viewSeg button, #sortSeg button").forEach(b => b.setAttribute("aria-pressed", b.classList.contains("on")));
   $("#sortSeg").hidden = state.view !== "list" || !events.some(e => x(e).popularity != null);
   $("#view").innerHTML = mine ? renderMine() : past ? (archive ? renderList(list, true) : `<div class="empty">Archiv wird geladen …</div>`)
     : state.view === "month" ? renderMonth(list)
@@ -752,7 +865,11 @@ function render() {
   $("#icsLink").href = (isMember() ? myIcal() : "calendar.ics") + (p.toString() ? "?" + p : "");
 }
 
-function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2600); }
+let toastT;
+function toast(msg, ms = 2600) {
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), ms);
+}
 
 async function api(path, opts) {
   const r = await fetch(path, opts);
@@ -763,14 +880,21 @@ async function api(path, opts) {
 async function load() {
   const [m, v, e] = await Promise.all([api("api/me"), api("api/venues"), api("api/events")]);
   me = m; venues = v.venues; meta = v; events = e;
+  vColor = new Map(venues.map((vn, i) => [vn.id, PALETTE[i % PALETTE.length]]));
   $("#foot").innerHTML = `<b>© ${new Date().getFullYear()}${v.copyright ? " " + esc(v.copyright) : ""}</b> · Privates, nicht-kommerzielles Projekt.
     Alle Angaben ohne Gewähr – massgebend sind die Websites der Locations; Tickets nur dort kaufen.
     Programme © der jeweiligen Locations · Band-Infos: MusicBrainz, Deezer · v${esc(v.version)}`;
-  if (archive) archive = await api("api/events?past=1");       // nach Mitternacht kommen Events dazu
-  marks = isMember() ? await api("api/marks") : {mine: {}, others: {}, share: false};
-  myEvents = isMember() ? await api("api/my-events") : [];
-  if (isMember() && !tgLink) tg = await api("api/telegram");
-  if (isMember()) setFollows(await api("api/follows"));
+  // unabhängig voneinander -> gleichzeitig laden; ein Archiv, das gerade erst lädt, nicht überschreiben
+  const hadArchive = !!archive;
+  const [a, mk, my, t, f] = await Promise.all([
+    archive ? api("api/events?past=1") : archive,                // nach Mitternacht kommen Events dazu
+    isMember() ? api("api/marks") : {mine: {}, others: {}, share: false},
+    isMember() ? api("api/my-events") : [],
+    isMember() && !tgLink ? api("api/telegram") : tg,
+    isMember() ? api("api/follows") : null]);
+  if (hadArchive) archive = a;
+  marks = mk; myEvents = my; tg = t;
+  if (f) setFollows(f);
   $("#mineTab").hidden = !isMember();
   // Gäste sehen nur den Kalender; Funktionen für Angemeldete erst nach «Anmelden»
   const member = !!(me && me.user), guest = !!(me && me.auth && !me.user);
@@ -781,13 +905,34 @@ async function load() {
   if (me && me.user) $("#whoName").textContent = "👤 " + me.user.username;
   const lastRun = venues.map(x => x.run && x.run.last_run).filter(Boolean).sort().pop();
   const errs = venues.filter(x => x.run && x.run.last_error).length;
-  $("#status").textContent = `${events.length} kommende Events · ${venues.length} Locations · zuletzt geprüft ${ago(lastRun)}`
-    + (errs ? ` · ${errs} mit Fehler` : "") + ` · v${v.version}`;
+  $("#status").innerHTML = `${events.length} kommende Events<span class="sub-x"> · ${venues.length} Locations · zuletzt geprüft ${ago(lastRun)}`
+    + (errs ? ` · ${errs} mit Fehler` : "") + ` · v${esc(v.version)}</span>`;
+  if (v.running && !runPoll) watchRun();
   renderSidebar(); render();
 }
 
+let runPoll = null;
+function watchRun() {                       // «Jetzt prüfen»: Knopf gesperrt, bis der Lauf wirklich fertig ist
+  const b = $("#runBtn"); b.disabled = true; b.textContent = "prüfe …";
+  const until = Date.now() + 30 * 60e3;
+  clearInterval(runPoll);
+  runPoll = setInterval(async () => {
+    const v = await api("api/venues").catch(() => ({running: true}));
+    if (v.running && Date.now() < until) return;
+    clearInterval(runPoll); runPoll = null;
+    b.disabled = false; b.textContent = "Jetzt prüfen";
+    await load(); toast("Prüfung fertig");
+  }, 5000);
+}
+
+function openDrawer(open) {                 // nur mobil: Filter als Vollbild
+  $("#aside").classList.toggle("open", open);
+  document.body.classList.toggle("noscroll", open);
+}
+
 // Ereignisse
-$("#q").addEventListener("input", e => { state.q = e.target.value; render(); });
+let qTimer;                                  // erst rendern, wenn kurz nicht mehr getippt wird
+$("#q").addEventListener("input", e => { clearTimeout(qTimer); qTimer = setTimeout(() => { state.q = e.target.value; render(); }, 150); });
 $("#range").addEventListener("click", e => { const k = e.target.dataset.k; if (k === undefined) return; state.range = k; store.set("range", k); renderSidebar(); render(); });
 $("#cities").addEventListener("click", e => { const k = e.target.dataset.k; if (k === undefined) return; state.city = k; store.set("city", k); renderSidebar(); render(); });
 $("#onlyNew").addEventListener("change", e => { state.onlyNew = e.target.checked; render(); });
@@ -837,7 +982,10 @@ $("#kinds").addEventListener("click", e => { const b = e.target.closest("[data-k
 }));
 $("#themeSeg").addEventListener("click", e => { const b = e.target.closest("[data-theme-k]"); if (b) { KA_THEME.setTheme(b.dataset.themeK); renderSidebar(); } });
 $("#accents").addEventListener("click", e => { const b = e.target.closest("[data-accent]"); if (b) { KA_THEME.setAccent(b.dataset.accent); renderSidebar(); } });
-$("#genres").addEventListener("click", e => { const b = e.target.closest("[data-k]"); if (b) toggleChip(state.genres, "genres", b.dataset.k); });
+$("#genres").addEventListener("click", e => {
+  if (e.target.closest("[data-more-genres]")) { state.allGenres = !state.allGenres; renderSidebar(); return; }
+  const b = e.target.closest("[data-k]"); if (b) toggleChip(state.genres, "genres", b.dataset.k);
+});
 $("#pops").addEventListener("click", e => { const b = e.target.closest("[data-k]"); if (b) toggleChip(state.pops, "pops", b.dataset.k); });
 $("#mine").addEventListener("click", e => { const b = e.target.closest("[data-k]"); if (!b) return; state.mine = b.dataset.k; store.set("mine", state.mine); renderSidebar(); render(); });
 document.addEventListener("change", async e => {
@@ -866,7 +1014,21 @@ $("#view").addEventListener("click", e => {
 $("#view").addEventListener("change", e => {
   const s = e.target.closest("[data-ticket]"); if (s) saveMark(s.dataset.uid, { status: "going", ticket: s.value });
 });
-$("#filtersBtn").onclick = () => $("#aside").classList.toggle("open");
+$("#filtersBtn").onclick = () => openDrawer(true);
+$("#drawerClose").onclick = $("#drawerDone").onclick = () => { openDrawer(false); window.scrollTo(0, 0); };
+document.addEventListener("keydown", e => { if (e.key === "Escape" && $("#aside").classList.contains("open")) openDrawer(false); });
+$("#activeF").addEventListener("click", e => { if (e.target.id === "resetF") resetFilters(); });
+$("#compactBtn").onclick = () => { state.compact = !state.compact; store.set("compact", state.compact); render(); };
+$("#view").addEventListener("click", e => {
+  if (e.target.closest("[data-more]")) { state.limit += PAGE; render(); return; }
+  const day = e.target.closest("[data-day]");
+  if (day) { state.calOpen.has(day.dataset.day) ? state.calOpen.delete(day.dataset.day) : state.calOpen.add(day.dataset.day); render(); return; }
+  const tip = e.target.closest(".tip");           // Infos aus dem Tooltip auch auf dem Handy (kein Hover)
+  if (tip && tip.title) toast(tip.title, 5000);
+});
+$("#view").addEventListener("toggle", e => {
+  if (e.target.classList.contains("running")) store.set("runningOpen", e.target.open);
+}, true);
 function copyLink(href, msg) {
   const url = new URL(href, location.href).href;
   // Zwischenablage gibt's nur über HTTPS (oder localhost) – sonst den Link zum Kopieren anzeigen
@@ -929,10 +1091,9 @@ $("#view").addEventListener("submit", ev => {
   if (name) setFollow(name);
 });
 $("#runBtn").onclick = async () => {
-  const b = $("#runBtn"); b.disabled = true; b.textContent = "prüfe …";
   await api("api/run", { method: "POST" });
   toast("Prüfung gestartet – dauert je nach Anzahl Locations ein paar Minuten");
-  setTimeout(async () => { await load(); b.disabled = false; b.textContent = "Jetzt prüfen"; }, 20000);
+  watchRun();
 };
 
 load().catch(err => { $("#status").textContent = "Fehler beim Laden: " + err; });

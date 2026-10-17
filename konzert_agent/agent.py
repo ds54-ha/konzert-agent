@@ -132,6 +132,11 @@ class Agent:
         result.new += new
         result.cancelled += cancelled
 
+    @property
+    def running(self) -> bool:
+        """Läuft gerade eine Prüfung? (für «Jetzt prüfen» in der Oberfläche)"""
+        return self._run_lock.locked()
+
     def run(self, only: list[str] | None = None, notify: bool = True) -> RunResult:
         if not self._run_lock.acquire(blocking=False):
             log.info("Lauf bereits aktiv – übersprungen")
