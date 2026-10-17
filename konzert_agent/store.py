@@ -113,6 +113,11 @@ class Store:
             for col, decl in self.ADDED_COLUMNS:          # ältere Datenbanken nachrüsten
                 if col not in cols:
                     self.db.execute(f"ALTER TABLE events ADD COLUMN {col} {decl}")
+            # v1.18.1: gemeldet wird neu alles mit notified=0. Ältere Datenbanken haben da viele nie gemeldete
+            # (ausgefilterte, «run --no-notify») Events – die einmalig als erledigt markieren, sonst kämen sie alle.
+            if self.db.execute("SELECT 1 FROM meta WHERE key='notify_queue'").fetchone() is None:
+                self.db.execute("UPDATE events SET notified=1 WHERE notified=0")
+                self.db.execute("INSERT INTO meta (key, value) VALUES ('notify_queue', '1')")
             self.db.commit()
 
     # ------------------------------------------------------------ Schreiben
@@ -416,13 +421,20 @@ class Store:
             sql += f" AND venue_id IN ({','.join('?' * len(venues))})"; args += venues
         if q:
             sql += " AND (title LIKE ? OR tags LIKE ? OR extra LIKE ?)"; args += [f"%{q}%"] * 3
-        if without_artists:
-            sql += " AND (extra NOT LIKE '%\"artists\":%' OR extra LIKE '%\"artists_retry\": true%')"
+        if without_artists:                 # json_extract statt LIKE: json_set (Preis) speichert ohne Leerzeichen
+            sql += " AND (json_extract(extra, '$.artists') IS NULL OR json_extract(extra, '$.artists_retry') = 1)"
         if new_days:
             sql += " AND first_seen >= ?"; args.append((datetime.now() - timedelta(days=new_days)).isoformat())
         sql += " ORDER BY date, time, title"
         with self.lock:
             rows = self.db.execute(sql, args).fetchall()
+        return [self._event_row(r) for r in rows]
+
+    def unnotified_events(self) -> list[dict]:
+        """Kommende Events, die noch nicht gemeldet (bzw. als erledigt markiert) sind."""
+        with self.lock:
+            rows = self.db.execute("SELECT * FROM events WHERE notified = 0 AND COALESCE(end_date, date) >= ?"
+                                   " ORDER BY date, time, title", (date.today().isoformat(),)).fetchall()
         return [self._event_row(r) for r in rows]
 
     def marked_events(self, user_id: int) -> list[dict]:

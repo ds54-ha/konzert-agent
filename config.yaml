@@ -21,6 +21,7 @@ auth:
   lockout_minutes: 15        # … 15 Minuten Sperre (pro Benutzername und pro IP)
   secure_cookies: auto       # Secure-Cookie, sobald die Seite über HTTPS aufgerufen wird
   client_ip_header: CF-Connecting-IP  # hinter Cloudflare (kk.flodwodiving.ch) – nur setzen, wenn der Proxy ihn setzt!
+  # trusted_proxies: [192.168.0.X]   # IP des nginx-Hosts: Header nur von dort glauben (leer = von jedem)
 
 notifiers:
   # Optional: alles fest an EINEN Chat (ohne Login). Normalerweise nicht nötig – Telegram läuft pro Benutzer

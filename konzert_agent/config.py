@@ -67,6 +67,7 @@ class AuthSettings:
     lockout_minutes: int = 15        # … innerhalb dieser Zeit -> so lange gesperrt
     secure_cookies: str = "auto"     # auto: Secure-Cookie, sobald über HTTPS (X-Forwarded-Proto) aufgerufen
     client_ip_header: str = ""       # hinter Proxy: z.B. CF-Connecting-IP oder X-Real-IP
+    trusted_proxies: list[str] = field(default_factory=list)  # IPs/Netze des Proxys; leer = Header immer glauben
 
 
 @dataclass

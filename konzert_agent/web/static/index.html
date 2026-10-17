@@ -293,6 +293,8 @@ const MONTHS = ["Januar","Februar","März","April","Mai","Juni","Juli","August",
 const PALETTE = ["#e2471b","#1d6fd8","#0f7b5f","#b0399b","#c58a00","#5b4bd6","#d0365a","#2a8f8f","#7a6a3a","#4d7c0f"];
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+// Links von fremden Seiten: nur http(s) – kein «javascript:» o.ä. aus einer gescrapten Seite
+const safeUrl = u => /^https?:\/\//i.test(String(u ?? "").trim()) ? esc(u) : "#";
 const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 const parse = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); };
 const todayIso = iso(new Date());
@@ -474,7 +476,7 @@ function evCard(e) {
   const m = myMark(e);
   return `<div class="ev ${e.cancelled||e.moved?"cxl":""} ${m && m.status==="going"?"going":""}" style="border-left:4px solid ${venueColor(e.venue_id)}">
     <span class="time">${esc(e.time || "")}</span>
-    <span class="body"><a class="t" href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.title)}</a>
+    <span class="body"><a class="t" href="${safeUrl(e.url)}" target="_blank" rel="noopener">${esc(e.title)}</a>
     <div class="meta"><span>${esc(e.venue)}${e.city ? ", "+esc(e.city) : ""}${range}${price}</span>${badges}${popBadge(e)}${tags}</div>
     ${e.moved && e.moved_note ? `<div class="moved">→ ${esc(e.moved_note)}</div>` : ""}${lineup(e)}${markBar(e)}</span></div>`;
 }
@@ -698,7 +700,7 @@ function renderMonth(list) {
     const d = new Date(start); d.setDate(start.getDate() + i);
     if (i >= 35 && d.getMonth() !== m) break;
     const k = iso(d), evs = byDay.get(k) || [];
-    const shown = evs.slice(0, 4).map(e => `<a class="pill" style="--vc:${venueColor(e.venue_id)}" href="${esc(e.url)}" target="_blank" rel="noopener"
+    const shown = evs.slice(0, 4).map(e => `<a class="pill" style="--vc:${venueColor(e.venue_id)}" href="${safeUrl(e.url)}" target="_blank" rel="noopener"
       title="${esc((e.time ? e.time+" · " : "") + e.title + " – " + e.venue)}">${pillMark(e)}${e.is_new?"● ":""}${esc(e.title)}</a>`).join("");
     const more = evs.length > 4 ? `<div class="more">+${evs.length - 4} weitere</div>` : "";
     cells += `<div class="cell ${d.getMonth()!==m?"out":""} ${k===todayIso?"today":""}"><div class="num">${d.getDate()}</div>${shown}${more}</div>`;

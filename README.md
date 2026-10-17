@@ -94,7 +94,8 @@ location / {
 
 Dazu in `config.yaml`: `settings.base_url` auf die öffentliche Adresse setzen (z.B.
 `https://konzerte.example.ch`) und hinter Cloudflare `auth.client_ip_header: CF-Connecting-IP`,
-damit die Sperre die echte IP sieht. Den Port 9099 im Heimnetz nicht ins Internet freigeben – nur den
+damit die Sperre die echte IP sieht. Zusätzlich `auth.trusted_proxies: [<IP des nginx-Hosts>]` setzen – dann
+gilt der Header nur, wenn die Anfrage wirklich vom Proxy kommt (wer Port 9099 direkt erreicht, kann ihn sonst fälschen). Den Port 9099 im Heimnetz nicht ins Internet freigeben – nur den
 Proxy. Ohne Login (nur Heimnetz): `auth.enabled: false`.
 
 ## Befehle

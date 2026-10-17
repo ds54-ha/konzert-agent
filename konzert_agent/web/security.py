@@ -12,10 +12,13 @@ Mit `auth.guests: false` sind für Gäste nur /login, /health und Kalender-Abos 
 from __future__ import annotations
 
 import html
+import ipaddress
+import logging
 import re
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlsplit
 
+from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
@@ -23,6 +26,7 @@ from ..auth import LoginLimiter, check_login, new_token, token_hash
 from ..config import AuthSettings
 from ..store import Store
 
+log = logging.getLogger(__name__)
 COOKIE = "ka_session"
 PUBLIC = re.compile(r"^/(?:login|logout|health|ical/[^/]+\.ics|static/theme\.js)$")   # theme.js: Login-Seite
 # Nur-Lesen für Gäste (bewusst eine Positivliste: neue Routen sind automatisch nur für Angemeldete)
@@ -40,10 +44,27 @@ def is_https(req: Request) -> bool:
     return (proto or req.url.scheme) == "https"
 
 
-def client_ip(req: Request, header: str) -> str:
-    if header and req.headers.get(header):
+def parse_networks(items: list[str]) -> list:
+    return [ipaddress.ip_network(i.strip(), strict=False) for i in items or []]
+
+
+def client_ip(req: Request, header: str, trusted: list | None = None) -> str:
+    """IP aus dem Proxy-Header – mit `trusted` aber nur, wenn die Anfrage auch vom Proxy kommt (sonst könnte,
+    wer den Port direkt erreicht, den Header fälschen und die Sperre pro IP umgehen)."""
+    peer = req.client.host if req.client else "?"
+    if header and req.headers.get(header) and (not trusted or _in_networks(peer, trusted)):
         return req.headers[header].split(",")[0].strip()
-    return req.client.host if req.client else "?"
+    return peer
+
+
+def _in_networks(ip: str, networks: list) -> bool:
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    if getattr(addr, "ipv4_mapped", None):
+        addr = addr.ipv4_mapped
+    return any(addr in n for n in networks)
 
 
 def same_origin(req: Request, extra_hosts: set[str] = frozenset()) -> bool:
@@ -110,6 +131,10 @@ def render_login(error: str = "", next_url: str = "/", hint: str = "", status: i
 
 def login_routes(store: Store, settings: AuthSettings, limiter: LoginLimiter | None = None):
     limiter = limiter or LoginLimiter(settings.max_failures, settings.lockout_minutes)
+    trusted = parse_networks(settings.trusted_proxies)
+    if settings.client_ip_header and not trusted:
+        log.info("auth.client_ip_header ohne auth.trusted_proxies: der Header wird jedem geglaubt, der den Port "
+                 "direkt erreicht – IP des Proxys unter auth.trusted_proxies eintragen")
 
     def render(*a, **kw):
         return render_login(*a, guests=settings.guests, **kw)
@@ -129,13 +154,13 @@ def login_routes(store: Store, settings: AuthSettings, limiter: LoginLimiter | N
         form = {k: v[0] for k, v in parse_qs((await req.body()).decode("utf-8", "replace")).items()}
         username, password = form.get("username", "").strip(), form.get("password", "")
         next_url = safe_next(form.get("next"))
-        keys = (f"u:{username.lower()}", f"ip:{client_ip(req, settings.client_ip_header)}")
+        keys = (f"u:{username.lower()}", f"ip:{client_ip(req, settings.client_ip_header, trusted)}")
         wait = limiter.locked_for(*keys)
         if wait:
             return render(f"Zu viele Fehlversuche – bitte in {wait // 60 + 1} Minuten nochmals versuchen.",
                                 next_url, status=429)
         user = store.user_by_name(username) if username else None
-        if not check_login(user, password):
+        if not await run_in_threadpool(check_login, user, password):   # scrypt blockiert sonst den Server
             limiter.failure(*keys)
             return render("Benutzername oder Passwort falsch.", next_url, no_users_hint(), status=401)
 

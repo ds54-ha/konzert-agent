@@ -234,7 +234,7 @@ class EnrichTests(unittest.TestCase):
 
 class AgentArtistTests(unittest.TestCase):
     def test_run_backfill_and_genre_filter(self):
-        from test_agent import FakeFetcher
+        from tests.test_agent import FakeFetcher
         with tempfile.TemporaryDirectory() as tmp:
             d = date.today() + timedelta(days=5)
             url = "https://www.petzi.ch/de/organiser/1/"

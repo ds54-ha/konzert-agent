@@ -41,7 +41,11 @@ def passes_filters(ev: Event, cfg: VenueConfig) -> bool:
 
 def event_from_row(d: dict) -> Event:
     return Event(venue_id=d["venue_id"], native_id=d["native_id"], title=d["title"], url=d.get("url") or "",
-                 date=date.fromisoformat(d["date"]), tags=d["tags"], extra=dict(d.get("extra") or {}))
+                 date=date.fromisoformat(d["date"]),
+                 end_date=date.fromisoformat(d["end_date"]) if d.get("end_date") else None,
+                 time=d.get("time"), tags=d["tags"], sold_out=bool(d.get("sold_out")),
+                 cancelled=bool(d.get("cancelled")), moved=bool(d.get("moved")), moved_note=d.get("moved_note") or "",
+                 extra=dict(d.get("extra") or {}))
 
 
 @dataclass
@@ -111,7 +115,7 @@ class Agent:
                 log.warning("Details für %s nicht geladen: %s", ev.url, e)
             self.enrich_artists(ev)            # nach enrich(): PETZI-Tags dienen als Genre-Rückfall
             self.store.update_details(ev)
-        new = [e for e in new if passes_filters(e, cfg) and not e.cancelled and not e.moved]
+        wanted = [e for e in new if passes_filters(e, cfg) and not e.cancelled and not e.moved]
         cancelled = [e for e in cancelled if passes_filters(e, cfg)]
 
         self.store.record_run(cfg.id, len(events), None if events else "0 Events gefunden")
@@ -120,6 +124,10 @@ class Agent:
             log.info("Venue %s: Erstimport von %d Events (ohne Benachrichtigung)", cfg.id, len(events))
             self.store.mark_notified([e.uid for e in new])
             return
+        # Ausgefilterte gleich als erledigt markieren; die übrigen bleiben offen, bis sie gemeldet sind
+        keep = {e.uid for e in wanted}
+        self.store.mark_notified([e.uid for e in new if e.uid not in keep])
+        new = wanted
         log.info("Venue %s: %d Events, %d neu, %d abgesagt/verschoben", cfg.id, len(events), len(new), len(cancelled))
         result.new += new
         result.cancelled += cancelled
@@ -138,21 +146,37 @@ class Agent:
                 n = self.backfill_artists(self.config.artists.backfill_per_run)
                 if n:
                     log.info("Band-Infos für %d bestehende Events nachgeholt", n)
-            if notify and (result.new or result.cancelled):
+            if not notify:                             # «nur einsammeln»: auch später nicht melden
+                self.store.mark_notified([e.uid for e in result.new])
+                return result
+            # Gemeldet wird alles noch Offene (notified=0) – auch was ein Neustart mitten im Lauf liegen liess
+            new = self.pending_events()
+            if new or result.cancelled:
                 for n in self.notifiers:
                     try:
-                        n.send(result.new, result.cancelled)
+                        n.send(new, result.cancelled)
                     except Exception:  # noqa: BLE001
                         log.exception("Benachrichtigung über %s fehlgeschlagen", type(n).__name__)
                 if self.user_bot:
                     try:
-                        self.user_bot.notify(result.new, result.cancelled)
+                        self.user_bot.notify(new, result.cancelled)
                     except Exception:  # noqa: BLE001
                         log.exception("Telegram-Meldungen an Benutzer fehlgeschlagen")
-                self.store.mark_notified([e.uid for e in result.new])
+                self.store.mark_notified([e.uid for e in new])
             return result
         finally:
             self._run_lock.release()
+
+    def pending_events(self) -> list[Event]:
+        """Kommende, noch nicht gemeldete Events aktiver Locations, die die Filter passieren."""
+        cfgs = {v.id: v for v in self.config.venues if v.enabled}
+        out = []
+        for d in self.store.unnotified_events():
+            cfg = cfgs.get(d["venue_id"])
+            ev = event_from_row(d)
+            if cfg and passes_filters(ev, cfg) and not ev.cancelled and not ev.moved:
+                out.append(ev)
+        return out
 
     def filtered_events(self, events: list[dict]) -> list[dict]:
         """Wendet include/exclude auch auf die Web-Ansicht an."""

@@ -70,9 +70,13 @@ class LoginLimiter:
         self._lock = threading.Lock()
 
     def _recent(self, key: str, now: float) -> deque:
-        q = self._fails[key]
+        q = self._fails.get(key)
+        if q is None:
+            return deque()
         while q and q[0] < now - self.window:
             q.popleft()
+        if not q:                            # abgelaufene Schlüssel löschen, sonst wächst der Speicher endlos
+            del self._fails[key]
         return q
 
     def locked_for(self, *keys: str) -> int:
@@ -87,7 +91,8 @@ class LoginLimiter:
         now = time.time()
         with self._lock:
             for k in keys:
-                self._recent(k, now).append(now)
+                self._recent(k, now)
+                self._fails[k].append(now)
 
     def success(self, *keys: str):
         with self._lock:

@@ -14,7 +14,7 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 
 from .base import (Source, register, parse_dotted_date, parse_time, month_from_name, infer_year, full_year, clean,
-                   split_status, with_support)
+                   safe_date, split_status, with_support)
 from ..models import Event
 
 _DMY_WORD = re.compile(r"(\d{1,2})\.?\s+([A-Za-zäéû]{3,})\.?\s+(\d{4}|\d{2}(?!\d))")    # «16. Okt 26» auch
@@ -22,7 +22,14 @@ _DM_SHORT = re.compile(r"(\d{1,2})\.(\d{1,2})\b\.?(?![\d.])")                   
 
 
 def parse_any_date(text: str, fmt: str | None = None) -> tuple[date, date | None] | None:
-    text = clean(text)
+    """Datum in allen üblichen Schreibweisen; unmögliche Daten (31.09.) -> None."""
+    try:
+        return _parse_any(clean(text), fmt)
+    except ValueError:
+        return None
+
+
+def _parse_any(text: str, fmt: str | None) -> tuple[date, date | None] | None:
     if fmt:
         try:
             return datetime.strptime(text, fmt).date(), None
@@ -114,12 +121,12 @@ class ICalSource(Source):
                 props.setdefault(key.split(";")[0].upper(), val.strip())
             raw = props.get("DTSTART", "")
             m = re.match(r"(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2}))?", raw)
-            if not m or not props.get("SUMMARY"):
+            if not m or not props.get("SUMMARY") or not (day := safe_date(int(m[1]), int(m[2]), int(m[3]))):
                 continue
             title = props["SUMMARY"].replace("\\,", ",").replace("\\;", ";")
             out.append(self.make_event(
                 native_id=props.get("UID") or f"{title}|{raw}",
-                title=title, date=date(int(m[1]), int(m[2]), int(m[3])),
+                title=title, date=day,
                 time=f"{m[4]}:{m[5]}" if m[4] else None,
                 url=props.get("URL", ""),
                 tags=[t.strip() for t in props.get("CATEGORIES", "").split(",") if t.strip()],

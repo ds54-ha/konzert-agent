@@ -7,6 +7,7 @@ from pathlib import Path
 
 from starlette.applications import Starlette
 from starlette.concurrency import run_in_threadpool
+from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from starlette.routing import Mount, Route
@@ -37,14 +38,18 @@ def create_app(agent: Agent):
     def query_events(req: Request) -> list[dict]:
         p = req.query_params
         past = p.get("past") == "1"                   # Archiv: alles vor heute, neueste zuerst
-        start = None if past else date.fromisoformat(p["from"]) if p.get("from") else date.today()
-        end = date.today() - timedelta(days=1) if past else date.fromisoformat(p["to"]) if p.get("to") else None
+        try:
+            start = None if past else date.fromisoformat(p["from"]) if p.get("from") else date.today()
+            end = date.today() - timedelta(days=1) if past else date.fromisoformat(p["to"]) if p.get("to") else None
+            new_days = int(p["new"]) if p.get("new") else None
+        except ValueError:
+            raise HTTPException(400, "Ungültiges Datum oder ungültige Zahl") from None
         venues = [v for v in p.get("venues", "").split(",") if v] or None
         if p.get("city"):
             city_ids = [v for v, m in venue_meta.items() if m["city"].lower() == p["city"].lower()]
             venues = [v for v in (venues or city_ids) if v in city_ids]
         evs = agent.store.events(start=start, end=end, venues=venues, q=p.get("q") or None,
-                                 new_days=int(p["new"]) if p.get("new") else None)
+                                 new_days=new_days)
         if p.get("raw") != "1":
             evs = agent.filtered_events(evs)
         # mehrfach erlaubt: ?genre=Metal&genre=Rock (Genre-Namen enthalten Kommas, z.B. «Soul, R&B & Funk»)

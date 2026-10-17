@@ -74,6 +74,13 @@
         (PETZI ↔ z. B. Eventim/Eventbrite für Berlin)
   - [ ] Separat deploybar: eigene Instanz pro Region (eigene DB/Port) oder eine Instanz mit Regionsfilter in der UI
   - [ ] Berlin-Set: Venues sammeln und Scraper bauen
+- [ ] 24. Verschwundene Events als abgesagt markieren: heute gilt ein Event nur als abgesagt, wenn die Location
+      es so beschriftet – verschwindet es einfach aus dem Programm, bleibt es im Kalender stehen
+  - [ ] Pro Lauf vergleichen: kommende Events der Location, die nicht mehr in der Liste sind (`last_seen` älter als
+        der aktuelle Lauf) -> abgesagt markieren und markierten Benutzern melden (wie heute bei «abgesagt»)
+  - [ ] Nur nach erfolgreichem Lauf mit plausibler Anzahl Events (nicht bei 0 Events/Fehler/Seitenumbau), evtl.
+        erst nach 2 Läufen ohne Treffer; X-tra lädt ohne «Alle anzeigen» nur 9 Events -> dort nicht anwenden
+  - [ ] Taucht das Event wieder auf: Absage zurücknehmen
 ## Layout & Bedienung
 
 - [x] 7. Optimierungen am UX (v1.10.0)

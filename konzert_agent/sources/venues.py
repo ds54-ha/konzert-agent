@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 from bs4 import BeautifulSoup
 
 from .base import (Source, register, parse_dotted_date, parse_time, month_from_name, infer_year, clean, split_status,
-                   first_sentence,
+                   first_sentence, safe_date,
                    with_support)
 from .generic import CssSource, parse_any_date
 from ..models import Event
@@ -40,7 +40,10 @@ class ExilSource(Source):
             m = self._RE.match(clean(a.get_text(" ")))
             if not m or m["kind"].lower() not in kinds:
                 continue
-            d, _ = parse_dotted_date(m["date"])
+            dates = parse_dotted_date(m["date"])
+            if not dates:
+                continue
+            d = dates[0]
             title = m["title"].strip()
             url = urljoin(base, a["href"])
             out.setdefault(url, self.make_event(
@@ -88,7 +91,8 @@ class HallenstadionSource(Source):
             if not m:
                 continue
             month = month_from_name(m["m"])
-            if not month:
+            day = safe_date(int(m["y"]), month, int(m["d"])) if month else None
+            if not day:
                 continue
             url = urljoin(base, href)
             q = parse_qs(urlsplit(url).query)
@@ -96,7 +100,7 @@ class HallenstadionSource(Source):
             native = q.get("availability_id", [slug])[0]
             out.setdefault(native, self.make_event(
                 native_id=native, title=m["title"].strip(),
-                date=date(int(m["y"]), month, int(m["d"])),
+                date=day,
                 time=parse_time(m["rest"]), url=url,
             ))
         return list(out.values())
@@ -255,10 +259,12 @@ class VolkshausSource(Source):
             if not _wanted(kind, kinds):
                 continue
             d, mo = int(day.group(1)), int(day.group(2))
+            if not (start := safe_date(year or infer_year(d, mo), mo, d)):
+                continue
             ticket = next((a["href"].strip() for a in cols[1].find_all("a", href=True) if "ticket" in a.get_text().lower()), "")
             st, info = split_status(lines[0]), cols[1].get_text(" ").upper()
             out.setdefault(el["data-event-id"], self.make_event(
-                native_id=el["data-event-id"], title=st.title, date=date(year or infer_year(d, mo), mo, d),
+                native_id=el["data-event-id"], title=st.title, date=start,
                 time=parse_time(lines[1]), url=ticket or self.cfg.url, tags=[kind.capitalize()] if kind else [],
                 **st.flags(sold_out="AUSVERKAUFT" in info, cancelled="ABGESAGT" in info,
                            moved=bool(re.search(r"VERSCHOBEN|VERLEGT", info)))))
@@ -515,6 +521,8 @@ class MuehleHunzikenSource(Source):
             m = self._SLUG_DATE.search(a["href"])
             year = int(m.group(1)) if m and (not m.group(2) or (int(m.group(2)), int(m.group(3))) == (mo, d)) \
                 else infer_year(d, mo)
+            if not (start := safe_date(year, mo, d)):
+                continue
             sub = a.select_one("div.uppercase")
             sub = clean(sub.get_text(" ")) if sub else ""
             st = split_status(clean(h2.get_text(" ")))
@@ -524,7 +532,7 @@ class MuehleHunzikenSource(Source):
             else:
                 title = with_support(title, sub)
             out.setdefault(a["href"], self.make_event(
-                native_id=a["href"].rstrip("/").rsplit("/", 1)[-1], title=title, date=date(year, mo, d), url=a["href"],
+                native_id=a["href"].rstrip("/").rsplit("/", 1)[-1], title=title, date=start, url=a["href"],
                 **st.flags(sold_out="ausverkauft" in flags,
                            cancelled=any("abgesagt" in f for f in flags),
                            moved=any(re.search(r"verschoben|verlegt", f) for f in flags))))

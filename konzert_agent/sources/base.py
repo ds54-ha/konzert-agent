@@ -91,11 +91,24 @@ def full_year(y: int, today: date | None = None) -> int:
     return y + 2000 if y < 100 else y
 
 
+def safe_date(y: int, m: int, d: int) -> date | None:
+    """date() ohne Ausnahme – ein unmögliches Datum (31.09.) soll nur dieses Event kosten, nicht die Location."""
+    try:
+        return date(y, m, d)
+    except ValueError:
+        return None
+
+
 def infer_year(day: int, month: int, today: date | None = None) -> int:
     """Für Angaben ohne Jahr: liegt das Datum >2 Monate zurück, ist nächstes Jahr gemeint."""
     today = today or date.today()
-    candidate = date(today.year, month, day)
-    if (today - candidate).days > 60:
+    if month == 2 and day == 29:                     # 29. Februar: das nächste Schaltjahr ab heute
+        y = today.year
+        while not safe_date(y, 2, 29) or (today - date(y, 2, 29)).days > 60:
+            y += 1
+        return y
+    candidate = safe_date(today.year, month, day)
+    if candidate and (today - candidate).days > 60:
         return today.year + 1
     return today.year
 
@@ -109,7 +122,15 @@ _FULL_RANGE_RE = re.compile(r"(\d{1,2})\.(\d{1,2})\.(\d{4})\s*[-–]\s*(\d{1,2})
 
 
 def parse_dotted_date(text: str) -> tuple[date, date | None] | None:
-    """'14.10.2026', '14.10.26', '25-28.11.2026', '30.10-02.11.2026', '17.10.2026 – 18.10.2026' -> (start, ende)."""
+    """'14.10.2026', '14.10.26', '25-28.11.2026', '30.10-02.11.2026', '17.10.2026 – 18.10.2026' -> (start, ende).
+    Unmögliche Daten (31.09.2026) -> None."""
+    try:
+        return _parse_dotted(text)
+    except ValueError:
+        return None
+
+
+def _parse_dotted(text: str) -> tuple[date, date | None] | None:
     m = _FULL_RANGE_RE.search(text)
     if m:
         d1, m1, y1, d2, m2, y2 = map(int, m.groups())

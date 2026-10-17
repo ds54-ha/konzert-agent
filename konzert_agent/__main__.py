@@ -19,6 +19,7 @@ import argparse
 import getpass
 import logging
 import os
+import re
 import sys
 import threading
 import time
@@ -35,6 +36,14 @@ from .sources import REGISTRY, create_source
 from .store import Store
 
 log = logging.getLogger("konzert_agent")
+_BOT_TOKEN = re.compile(r"bot\d+:[\w-]+")
+
+
+class RedactingFormatter(logging.Formatter):
+    """Telegram-Token aus Logs entfernen – Fehlermeldungen von requests enthalten die ganze URL (…/bot<TOKEN>/…)."""
+
+    def format(self, record):
+        return _BOT_TOKEN.sub("bot<TOKEN>", super().format(record))
 
 
 def scheduler_loop(agent: Agent, hours: float):
@@ -192,8 +201,9 @@ def main(argv=None):
     us.add_argument("--password-stdin", action="store_true", help="Passwort von stdin lesen (für Skripte)")
     a = p.parse_args(argv)
 
-    logging.basicConfig(level=logging.DEBUG if a.verbose else logging.INFO,
-                        format="%(asctime)s %(levelname)-7s %(name)s: %(message)s")
+    logging.basicConfig(level=logging.DEBUG if a.verbose else logging.INFO)
+    for h in logging.getLogger().handlers:
+        h.setFormatter(RedactingFormatter("%(asctime)s %(levelname)-7s %(name)s: %(message)s"))
     cfg = load_config(a.config)
     load_plugins(cfg.plugins)
 
